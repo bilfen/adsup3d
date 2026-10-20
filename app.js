@@ -135,10 +135,7 @@ async function fetchGlb(base, result) {
   return null;
 }
 
-async function generate3D(file) {
-  setStatus("Görsel sunucuya yükleniyor…", 10);
-  log("Yükleniyor: " + file.name);
-
+async function tryGenerationChain(file) {
   // Zincir: her space için önce generation_all (renkli), sonra shape_generation (beyaz)
   let lastErr = null;
   for (const base of SPACES) {
@@ -162,8 +159,29 @@ async function generate3D(file) {
       }
     }
   }
-  throw new Error("Tüm denemeler başarısız — Hugging Face GPU kotası şu anda dolu. 2-5 dakika sonra tekrar deneyin."
-    + " (Son hata: " + (lastErr ? lastErr.message : "?") + ")");
+  throw new Error("Hugging Face GPU kotası şu anda dolu (son hata: " + (lastErr ? lastErr.message : "?") + ")");
+}
+
+async function generate3D(file) {
+  setStatus("Görsel sunucuya yükleniyor…", 10);
+  log("Yükleniyor: " + file.name);
+
+  // GPU kotası dolunca otomatik yeniden dene: 3 tur, aralarda geri sayımlı bekleme
+  const ATTEMPTS = 3, WAIT = 45_000;
+  let lastErr = null;
+  for (let a = 0; a < ATTEMPTS; a++) {
+    try {
+      return await tryGenerationChain(file);
+    } catch (e) {
+      lastErr = e;
+      if (a < ATTEMPTS - 1) log("Tur " + (a + 1) + " bitti: " + e.message + " → kota için beklenecek");
+      for (let s = 45; a < ATTEMPTS - 1 && s > 0; s -= 5) {
+        setStatus("GPU kotası dolu — " + s + " sn sonra otomatik tekrar… (deneme " + (a + 2) + "/" + ATTEMPTS + ")", 20);
+        await new Promise(r => setTimeout(r, 5_000));
+      }
+    }
+  }
+  throw new Error("Hugging Face GPU kotası şu anda dolu. 2-5 dakika sonra tekrar deneyin.");
 }
 
 // ---------- 3) Three.js sahne ----------
