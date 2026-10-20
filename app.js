@@ -1,5 +1,5 @@
 // AD'S UP — Görselden 3D videoya
-// Akış: görsel yükle -> Hugging Face'teki Tencent Hunyuan3D-2 Space'ine gönder -> .glb al
+// Akış: görsel yükle -> Hunyuan3D-2 Space'lerine gönder (renkli önce, beyaz yedek) -> .glb al
 //       -> Three.js ile göster -> dönerken MediaRecorder ile kaydet -> WebM indir.
 
 const $ = (id) => document.getElementById(id);
@@ -9,7 +9,6 @@ const statusEl = $("status"), bar = $("bar"), barFill = $("barFill"), logEl = $(
 const secViz = $("secViz"), vidList = $("vidList");
 const canvas = $("c3d");
 
-const API = "https://tencent-hunyuan3d-2.hf.space";
 const log = (m) => { logEl.style.display = "block"; logEl.textContent += m + "\n"; logEl.scrollTop = 1e9; };
 const setStatus = (t, pct) => { statusEl.textContent = t; if (pct != null) { bar.style.display = "block"; barFill.style.width = pct + "%"; } };
 
@@ -36,40 +35,32 @@ function setFile(f) {
 }
 
 // ---------- 2) Hunyuan3D-2 API ----------
-async function uploadFile(f) {
+// Ana space GPU kotası dolunca "event: error" döner; yedek Space'ler zincire eklendi.
+const SPACES = [
+  "https://tencent-hunyuan3d-2.hf.space",   // resmî
+  "https://tencent-hunyuan3d-2mv.hf.space"  // resmî MV yedeği (aynı API imzası)
+];
+
+async function uploadTo(base, f) {
   const fd = new FormData();
   fd.append("files", f, f.name);
-  const r = await fetch(API + "/upload", { method: "POST", body: fd });
+  const r = await fetch(base + "/upload", { method: "POST", body: fd });
   if (!r.ok) throw new Error("Yükleme hatası: HTTP " + r.status);
   const arr = await r.json();
   return { path: arr[0], meta: { _type: "gradio.FileData" }, orig_name: f.name };
 }
 
-function parseSSE(sseText) {
-  // "data: [...]" satırlarını topla, en son complete bloğunu bul
-  const chunks = [];
-  let ev = null;
-  for (const line of sseText.split("\n")) {
-    if (line.startsWith("event:")) ev = line.slice(6).trim();
-    else if (line.startsWith("data:")) chunks.push({ event: ev, data: line.slice(5).trim() });
-  }
-  return chunks;
-}
-
-async function generate3D(file) {
-  setStatus("Görsel sunucuya yükleniyor…", 10);
-  log("Yükleniyor: " + file.name);
-  const fd = await uploadFile(file);
-
-  setStatus("3D üretim kuyruğa alınıyor…", 20);
-  log("Kuyruğa alınıyor (shape_generation)…");
-  const join = await fetch(API + "/call/shape_generation", {
+// Tek bir space+endpoint denemesi: yükle → kuyruğa al → SSE ile sonucu bekle → file value döndür
+async function tryEndpoint(base, fn, file, label) {
+  const fileObj = await uploadTo(base, file);
+  log("Yüklendi → " + base.replace("https://", "").split(".hf")[0] + " | " + fn);
+  const join = await fetch(base + "/call/" + fn, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       data: [
         null,                     // caption (yok)
-        fd,                       // image
+        fileObj,                  // image
         null, null, null, null,   // multiview görselleri (yok)
         30,                       // steps
         5.0,                      // guidance_scale
@@ -82,57 +73,97 @@ async function generate3D(file) {
     })
   });
   const j = await join.json();
-  if (!join.ok || !j.event_id) throw new Error("Kuyruk hatası: " + JSON.stringify(j));
+  if (!join.ok || !j.event_id) throw new Error("Kuyruk hatası: " + JSON.stringify(j).slice(0, 200));
 
-  setStatus("3D model üretiliyor… (10-60 sn, kuyrukta bekleme olabilir)", 35);
-  log("event_id: " + j.event_id);
+  setStatus(label + " kuyrukta… (bekleme sürer)", 40);
 
-  // SSE ile sonucu bekle
-  const sse = new EventSource(API + "/call/shape_generation/" + j.event_id);
+  const sse = new EventSource(base + "/call/" + fn + "/" + j.event_id);
   const result = await new Promise((resolve, reject) => {
     let ticks = 0;
     const timer = setInterval(() => {
       ticks++;
-      // yavaş ilerleme: 35 -> 75
-      if (ticks % 6 === 0) { let w = parseFloat(barFill.style.width) || 35; w = Math.min(75, w + 2); setStatus("Üretiliyor…" + Math.round(w) + "%", w); }
-    }, 3000);
-    sse.addEventListener("process_generating", (e) => log("…işlem: " + e.data.slice(0, 140)));
+      // yavaş ilerleme: 40 -> 80
+      if (ticks % 5 === 0) { let w = parseFloat(barFill.style.width) || 40; w = Math.min(80, w + 3); setStatus(label + "… " + Math.round(w) + "%", w); }
+    }, 4000);
+    sse.addEventListener("process_generating", (e) => log("…işlem: " + String(e.data || "").slice(0, 120)));
     sse.addEventListener("complete", (e) => {
       clearInterval(timer); sse.close();
       try {
         const chunks = JSON.parse(e.data);
         const arr = Array.isArray(chunks) ? chunks : [chunks];
+        // file-benzeri değerleri topla
+        const files = [];
         for (const c of arr) {
-          if (c && typeof c === "object" && c.value && c.value.url) { resolve(c.value); return; }
+          const v = c && (c.value || (c.path ? c : null));
+          if (v && (v.url || v.path)) files.push(v);
         }
-        reject(new Error("Sonuç bulunamadı: " + e.data.slice(0, 300)));
+        if (!files.length) { reject(new Error("Sonuç bulunamadı: " + String(e.data).slice(0, 200))); return; }
+        // generation_all => [white, textured, html, stats] → texturelıyı seç; shape => ilki
+        const pick = fn === "generation_all"
+          ? (files.find(v => String(v.path || "").includes("textured") || String(v.orig_name || "").includes("textured")) || files[files.length - 1])
+          : files[0];
+        resolve(pick);
       } catch (err) { reject(err); }
     });
-    sse.addEventListener("error", (e) => { clearInterval(timer); sse.close(); reject(new Error("Bağlantı hatası (SSE)")); });
+    sse.addEventListener("error", (e) => { clearInterval(timer); sse.close(); reject(new Error("GPU kota/kapasite reddi (SSE)")); });
   });
+  return result;
+}
 
-  // .glb dosyasını indir — SSE url nesili bazen bozuk oluyor; güvenli desen: /file=<path>
-  setStatus("3D model indiriliyor…", 80);
-  log("Model indiriliyor: " + (result.orig_name || "white_mesh.glb"));
-  const candidates = [];
+// /file=<path> ile GLB indirme adresleri; magic "glTF" doğrulaması fetchGlb'de
+const glbDownloadURLs = (base, result) => {
+  const cands = [];
   if (result.path) {
-    candidates.push(API + "/file=" + result.path);
-    candidates.push(API + "/gradio_api/file=" + result.path);
+    cands.push(base + "/file=" + result.path);
+    cands.push(base + "/gradio_api/file=" + result.path);
   }
-  if (result.url) candidates.push(result.url); // en son yedek
-  let glbBlob = null;
-  for (const u of candidates) {
+  if (result.url) cands.push(result.url);
+  return cands;
+};
+
+async function fetchGlb(base, result) {
+  setStatus("3D model indiriliyor…", 85);
+  for (const u of glbDownloadURLs(base, result)) {
     try {
       const blob = await (await fetch(u)).blob();
       const head = new Uint8Array(await blob.slice(0, 4).arrayBuffer());
       const magic = String.fromCharCode(...head);
-      if (magic === "glTF") { glbBlob = blob; break; }
+      if (magic === "glTF") return blob;
       log("Uyumsuz yanıt (" + magic + ") denendi: " + u.slice(-40));
     } catch (e) { log("İndirme denemesi başarısız: " + u.slice(-40)); }
   }
-  if (!glbBlob) throw new Error("3D model dosyası indirilemedi (sunucu yanıtı geçersiz) — birkaç dakika sonra tekrar deneyin.");
-  setStatus("Model hazır!", 100);
-  return glbBlob;
+  return null;
+}
+
+async function generate3D(file) {
+  setStatus("Görsel sunucuya yükleniyor…", 10);
+  log("Yükleniyor: " + file.name);
+
+  // Zincir: her space için önce generation_all (renkli), sonra shape_generation (beyaz)
+  let lastErr = null;
+  for (const base of SPACES) {
+    const sName = base.replace("https://", "").split(".hf")[0];
+    for (const fn of ["generation_all", "shape_generation"]) {
+      const textured = fn === "generation_all";
+      const label = (textured ? "Renkli 3D üretiliyor" : "3D üretiliyor (yedek)") + " — " + sName;
+      try {
+        setStatus((textured ? "Renkli 3D deneniyor" : "Beyaz 3D deneniyor (yedek)") + "…", 25);
+        log((textured ? "generation_all (renkli)" : "shape_generation (beyaz)") + " → " + sName);
+        const result = await tryEndpoint(base, fn, file, label);
+        const glbBlob = await fetchGlb(base, result);
+        if (!glbBlob) throw new Error("Model dosyası indirilemedi");
+        setStatus("Model hazır!" + (textured ? " (renkli)" : " (beyaz)"), 100);
+        log("Model hazır: " + (textured ? "TEXTURELI" : "BEYAZ") + " mesh");
+        return glbBlob;
+      } catch (e) {
+        lastErr = e;
+        log("Başarısız [" + sName + " / " + fn + "]: " + e.message + " → sıradaki adıma geçiliyor");
+        await new Promise(r => setTimeout(r, 800));
+      }
+    }
+  }
+  throw new Error("Tüm denemeler başarısız — Hugging Face GPU kotası şu anda dolu. 2-5 dakika sonra tekrar deneyin."
+    + " (Son hata: " + (lastErr ? lastErr.message : "?") + ")");
 }
 
 // ---------- 3) Three.js sahne ----------
