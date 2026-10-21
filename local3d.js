@@ -30,6 +30,26 @@ function notify(msg) {
   if (_progressLog) _progressLog(msg);
 }
 
+// Öğrenci çizimini daha doygun gösterir. Gemini gerekmez.
+function boostColors(canvas) {
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return canvas;
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = img.data;
+  const sat = 1.5;
+  const contrast = 1.1;
+  for (let i = 0; i < d.length; i += 4) {
+    const avg = (d[i] + d[i + 1] + d[i + 2]) / 3;
+    for (let c = 0; c < 3; c++) {
+      let v = avg + (d[i + c] - avg) * sat;
+      v = (v - 128) * contrast + 128;
+      d[i + c] = v < 0 ? 0 : v > 255 ? 255 : v;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return canvas;
+}
+
 async function getDepthPipe() {
   if (depthPipe) return depthPipe;
   const { pipeline } = await loadTJS();
@@ -113,6 +133,16 @@ export async function generateLocal3D(file) {
     }
   }
 
+  // Maske neredeyse boşsa (ör. geniş banner/logo), modnet konu bulamamıştır:
+  // tüm görseli ön plan say ki model seyrek/dağınık kalmasın.
+  let covered = 0;
+  for (let k = 0; k < W * H; k++) if (softA[k] > 90) covered++;
+  const fullCover = covered / (W * H) < 0.05;
+  if (fullCover) {
+    notify("Ön plan maskesi çok küçük — tüm görsel kullanılıyor");
+    softA.fill(255);
+  }
+
   // Konu bbox
   let x0 = W, y0 = H, x1 = 0, y1 = 0;
   for (let y = 0; y < H; y++)
@@ -139,55 +169,77 @@ export async function generateLocal3D(file) {
       }
   if (!(dMax > dMin)) { dMin = 0; dMax = 255; }
 
-  // Grid mesh
-  const N = 150; // 150×150 grid → hızlı ve yeterli
+  // Derinliği yumuşat: rölyef pürüzsüz, 360° dönüşte daha tok durur.
+  const dBlur = new Float32Array(W * H);
+  const rad = 2;
+  for (let y = 0; y < H; y++) {
+    const yA = Math.max(0, y - rad), yB = Math.min(H - 1, y + rad);
+    for (let x = 0; x < W; x++) {
+      const xA = Math.max(0, x - rad), xB = Math.min(W - 1, x + rad);
+      let s = 0, n = 0;
+      for (let yy = yA; yy <= yB; yy++)
+        for (let xx = xA; xx <= xB; xx++) { s += dData[yy * W + xx]; n++; }
+      dBlur[y * W + x] = s / n;
+    }
+  }
+
+  // Kalın, renkli kabartma: ön yüz + arka yüz + gökkuşağı kenar.
+  // İnce bir kart 360° dönüşte yok olur; kalınlık kenardan okunur.
+  const N = 160;
+  const cols = N + 1;
   const bw = x1 - x0, bh = y1 - y0;
-  const relH = 0.55; // wçz rölyef yüksekliği (birim: genişlik=1)
-  const pos = [], uv = [], idx = [], alphaCols = new Float32Array((N + 1) * (N + 1));
+  const relH = 0.62;
+  const thick = 0.2;
+  const pos = [];
+  const uv = [];
+  const alphaCols = new Float32Array(cols * cols);
+  const span = Math.max(dMax - dMin, 1);
 
-  const sample = (data, channels, px, py) => {
-    const cx = Math.max(0, Math.min(W - 1, px)), cy = Math.max(0, Math.min(H - 1, py));
-    const i = (cy * W + cx) * channels;
-    return data[i];
-  };
-
-  let vi = 0;
   for (let j = 0; j <= N; j++) {
     for (let i2 = 0; i2 <= N; i2++) {
       const fx = x0 + (i2 / N) * bw;
       const fy = y0 + (j / N) * bh;
-      const cx = Math.round(fx), cy = Math.round(fy);
-      // 3×3 alpha ortalaması (hücre düzleştirme)
+      const cx = Math.max(0, Math.min(W - 1, Math.round(fx)));
+      const cy = Math.max(0, Math.min(H - 1, Math.round(fy)));
       let a = 0, n = 0;
       for (let dy = -1; dy <= 1; dy++)
         for (let dx = -1; dx <= 1; dx++) {
-          const ok = cy + dy >= 0 && cy + dy < H && cx + dx >= 0 && cx + dx < W;
-          if (ok) { a += softA[(cy + dy) * W + (cx + dx)]; n++; }
+          const xx = cx + dx, yy = cy + dy;
+          if (xx >= 0 && yy >= 0 && xx < W && yy < H) { a += softA[yy * W + xx]; n++; }
         }
-      a /= n; alphaCols[j * (N + 1) + i2] = a;
-
-      const dRaw = sample(dData, 1, cx, cy);
-      // depth-anything: daha büyük değer = daha yakın → rölyef şişkinliği için t kullan
-      const t = Math.max(0, Math.min(1, (dRaw - dMin) / (dMax - dMin)));
+      alphaCols[j * cols + i2] = a / n;
+      const t = Math.max(0, Math.min(1, (dBlur[cy * W + cx] - dMin) / span));
       pos.push(
-        (fx / W - (x0 + x1) / (2 * W)) * 1.0,          // x: konu merkezli, genişlik 1
-        -(fy / H - (y0 + y1) / (2 * H)) * (bh / bw),   // y: en-boy oranına göre
-        t * relH                                        // z: derinlik rölyefi
+        fx / W - (x0 + x1) / (2 * W),
+        -(fy / H - (y0 + y1) / (2 * H)) * (bh / Math.max(1, bw)),
+        0.04 + t * relH
       );
       uv.push(fx / W, 1 - fy / H);
-      vi++;
     }
   }
 
-  // Yüzler: 4 köşesi de ön plan olan hücreler
+  const vCount = cols * cols;
+  for (let k = 0; k < vCount; k++) {
+    pos.push(pos[k * 3], pos[k * 3 + 1], -thick);
+    uv.push(1 - uv[k * 2], uv[k * 2 + 1]);
+  }
+
+  const inside = (j, i2) => {
+    if (j < 0 || i2 < 0 || j >= N || i2 >= N) return false;
+    return alphaCols[j * cols + i2] > 120 &&
+      alphaCols[j * cols + i2 + 1] > 120 &&
+      alphaCols[(j + 1) * cols + i2] > 120 &&
+      alphaCols[(j + 1) * cols + i2 + 1] > 120;
+  };
+
+  const idx = [];
   for (let j = 0; j < N; j++) {
     for (let i2 = 0; i2 < N; i2++) {
-      const a1 = alphaCols[j * (N + 1) + i2], a2 = alphaCols[j * (N + 1) + i2 + 1],
-        a3 = alphaCols[(j + 1) * (N + 1) + i2], a4 = alphaCols[(j + 1) * (N + 1) + i2 + 1];
-      if (a1 > 120 && a2 > 120 && a3 > 120 && a4 > 120) {
-        const tl = j * (N + 1) + i2, tr = tl + 1, bl = (j + 1) * (N + 1) + i2, br = bl + 1;
-        idx.push(tl, bl, tr, tr, bl, br);
-      }
+      if (!inside(j, i2)) continue;
+      const tl = j * cols + i2, tr = tl + 1, bl = (j + 1) * cols + i2, br = bl + 1;
+      idx.push(tl, bl, tr, tr, bl, br);
+      const B = vCount;
+      idx.push(B + tl, B + tr, B + bl, B + tr, B + br, B + bl);
     }
   }
   if (!idx.length) throw new Error("Mesh yüzü oluşamadı — daha sade arka planlı görsel deneyin");
@@ -198,27 +250,68 @@ export async function generateLocal3D(file) {
   geo.setIndex(idx);
   geo.computeVertexNormals();
 
-  // Texture: RGBA kesme görüntüsü
-  const texCanvas = cut.toCanvas();
+  const texCanvas = boostColors(fullCover ? img.toCanvas() : cut.toCanvas());
   const tex = new THREE.CanvasTexture(texCanvas);
   tex.colorSpace = THREE.SRGBColorSpace;
 
   const mat = new THREE.MeshStandardMaterial({
     map: tex,
-    transparent: true,
-    alphaTest: 0.4,
+    transparent: !fullCover,
+    alphaTest: fullCover ? 0 : 0.35,
     side: THREE.DoubleSide,
-    roughness: 0.85,
-    metalness: 0.0,
+    roughness: 0.72,
+    metalness: 0.02,
     emissive: 0xffffff,
-    emissiveIntensity: 0.18,
+    emissiveIntensity: 0.08,
     emissiveMap: tex
   });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.name = "local_relief";
 
+  // Kenar: dönüş sırasında görünen renkli kalınlık.
+  const sidePos = [];
+  const sideCol = [];
+  const PAL = [
+    [0.90, 0.22, 0.27],
+    [0.96, 0.64, 0.09],
+    [0.16, 0.62, 0.33],
+    [0.07, 0.45, 0.75],
+    [0.70, 0.06, 0.46]
+  ];
+  const pushSide = (a, b) => {
+    const take = (i) => [pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]];
+    const A = take(a), Bv = take(b), A2 = take(a + vCount), B2 = take(b + vCount);
+    const ang = Math.atan2((A[1] + Bv[1]) * 0.5, (A[0] + Bv[0]) * 0.5);
+    const p = PAL[Math.floor(((ang + Math.PI) / (Math.PI * 2)) * PAL.length) % PAL.length];
+    const tris = [A, Bv, B2, A, B2, A2];
+    for (const v of tris) {
+      sidePos.push(v[0], v[1], v[2]);
+      sideCol.push(p[0], p[1], p[2]);
+    }
+  };
+  for (let j = 0; j < N; j++) {
+    for (let i2 = 0; i2 < N; i2++) {
+      if (!inside(j, i2)) continue;
+      const tl = j * cols + i2, tr = tl + 1, bl = (j + 1) * cols + i2, br = bl + 1;
+      if (!inside(j - 1, i2)) pushSide(tl, tr);
+      if (!inside(j + 1, i2)) pushSide(br, bl);
+      if (!inside(j, i2 - 1)) pushSide(bl, tl);
+      if (!inside(j, i2 + 1)) pushSide(tr, br);
+    }
+  }
+  const sideGeo = new THREE.BufferGeometry();
+  sideGeo.setAttribute("position", new THREE.Float32BufferAttribute(sidePos, 3));
+  sideGeo.setAttribute("color", new THREE.Float32BufferAttribute(sideCol, 3));
+  sideGeo.computeVertexNormals();
+  const sideMat = new THREE.MeshBasicMaterial({
+    vertexColors: true,
+    side: THREE.DoubleSide
+  });
+  const sideMesh = new THREE.Mesh(sideGeo, sideMat);
+  sideMesh.name = "local_rim";
+
   const group = new THREE.Group();
-  group.add(mesh);
+  group.add(mesh, sideMesh);
 
   // GLB blob
   const glb = await new Promise((resolve, reject) => {

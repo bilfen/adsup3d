@@ -1,15 +1,24 @@
 # Bilfen AD'S UP — Görselden 3D Animasyon Videosuna
 
-Öğrenciler bir görsel (çizim, fotoğraf, logo…) yükler; görsel **Tencent Hunyuan3D-2** modeliyle 3D modele dönüşür ve öğrenci, **kendi tarayıcısında dönen modeli video olarak kaydedip indirir**. Sitenin tamamı statiktir: GitHub Pages'te ücretsiz barındırılır, sunucu/anahtar gerektirmez.
+Öğrenci bir görsel (çizim, fotoğraf, logo…) yükler. Görsel **bu bilgisayarın tarayıcısında** renkli, kalın bir 3D kabartmaya dönüşür, **360° döner** ve video dosyası iner. Ücret ve hesap yok. Eski Hunyuan3D / Hugging Face kotası artık kullanılmıyor; o servis dolunca akış kopuyordu.
 
 ## Nasıl çalışır?
 
 1. Öğrenci görseli sürükleyip bırakır (veya tıklayarak seçer).
-2. Görsel doğrudan tarayıcıdan Hugging Face'teki resmî **`tencent/Hunyuan3D-2`** Space'inin ücretsiz API'sine gönderilir → 3D model (.glb) döner (genelde 10–60 saniye; kuyrukta bekleme olabilir).
-3. Model Three.js ile canlı gösterilir; otomatik döner, fareyle de çevrilebilir.
-4. **"10 saniyelik kayıt + indir"** ya da manuel kayıt düğmesiyle model MediaRecorder ile WebM videoya çevrilir, sayfada oynatılır ve **⬇ İndir** ile bilgisayara iner.
+2. Tarayıcı, ücretsiz derinlik modeliyle görseli renkli bir 3D kabartmaya çevirir. İlk seferde model dosyası iner (yaklaşık 30 MB), sonra önbellekten gelir.
+3. Model hazır olunca kendi etrafında 8 saniyelik tam bir tur döner. Video kendiliğinden inmeye başlar.
+4. İnmezse karttaki **⬇ İndir** aynı dosyayı tekrar kaydeder. Chrome veya Edge kullanın.
 
-Görsel hiçbir aracı sunucuya gitmez; cihaz ↔ Hugging Face arasında doğrudan akar.
+3D için görsel bir sunucuya gitmez.
+
+## İsteğe bağlı: Gemini ile renk canlandırma
+
+Gemini **3D model ve video üretmez**. Yalnızca işaretlenirse görseli daha canlı renge çevirir; 3D yine tarayıcıda yapılır.
+
+1. `.env.example` dosyasını `.env` yapın ve `GEMINI_API_KEY=` satırına anahtarı yazın.
+2. `bun dev-server.js` ile `http://localhost:8080` açın. Sayfada "Gemini ile renkleri canlandır" kutusu çıkar.
+3. Kutu işaretliyse görsel Google'a gider. İşaretsizse görsel bilgisayardan çıkmaz.
+4. `.env` dosyasını GitHub'a, öğrenci klasörüne veya sayfanın içine koymayın. Sunucu bu dosyayı dışarı vermez.
 
 ## Opsiyonel: "Google Drive'a Kaydet" düğmesi
 
@@ -32,17 +41,24 @@ Video kartındaki **⬇ İndir** düğmesinin yanında **"☁ Drive'a Kaydet"** 
 3. 1–2 dakika sonra `https://<GitHub-kullanıcı-adı>.github.io/adsup-3d/` adresi yayında olur.
 4. Öğrenciler bu adresi tarayıcıda açar — kurulum, hesap veya anahtar gerekmez.
 
-> Not: GitHub Pages `localhost` değildir; tarayıcı CORS/HTTPS kuralları Hugging Face API'siyle sorunsuz çalışır (test edildi).
+> GitHub Pages üzerinde 3D ve video çalışır. Gemini renk kutusu yalnızca yerel sunucuda görünür; `.env` dosyasını repoya koymayın.
 
-## Yerel test (isteğe bağlı)
+## Yerel test
 
-[Bun](https://bun.sh) yüklüyse: klasörde `bun dev-server.js` → `http://localhost:8080`.
-Python varsa: `python -m http.server 8080` de aynı işi görür.
+Bu bilgisayarda Bun/Node/Python yoksa:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File serve.ps1
+```
+
+Tarayıcıda `http://localhost:8080` açın. Dosyayı çift tıklayarak açmayın; tarayıcı modülleri `file://` adresinde çalışmaz.
+
+Bun yüklüyse `bun dev-server.js` aynı adresi açar. Python varsa `python -m http.server 8080` yalnızca 3D'yi açar, Gemini kutusunu açmaz.
 
 ## Sınırlar & iyi sonuç için ipuçları
 
-- Hugging Face'in ücretsiz demosunun kendi kota/bekleme sınırı vardır; yoğun saatlerde sırada bekleme olabilir. Sitede bu durum HTTPS hatası yerine net mesajla gösterilir.
 - En iyi sonuç: **sade/düz arka planlı**, tek nesne fotoğrafları (oyuncak, ürün, karakter, kendi çizimi…).
+- İlk açılışta internet gerekir (Three.js ve derinlik modeli). Sonrası önbellekten çalışır, API kotası yoktur.
 - Çıktı videosu WebM formatındadır (Chrome/Edge ile MP4 destekli tarayıcılar otomatik MP4 seçebilir). İstenirse Windows'ta "Fotoğraflar" ya da VLC ile MP4'e dönüştürülebilir.
 - Sitede banner `assets/banner.jpg` olarak kullanılır — kendi görselinizle değiştirebilirsiniz.
 
@@ -51,5 +67,6 @@ Python varsa: `python -m http.server 8080` de aynı işi görür.
 - Google Drive (opsiyonel): Google Identity Services token'ı ile Drive API multipart upload — tamamı tarayıcıdan.
 
 - Saf HTML/CSS/JS (framework yok) + [Three.js](https://threejs.org) 0.160 (CDN'den).
-- Hunyuan3D-2 Gradio HTTP API: `POST /upload` → `POST /call/shape_generation` → SSE (`/call/shape_generation/<event_id>`) → indirme `GET /file=<path>` ( doğrulanmış akış).
-- Video: tarayıcıda `canvas.captureStream()` + `MediaRecorder` (sunucu yok).
+- 3D: tarayıcıda Depth Anything + ön plan maskesi → kalın renkli kabartma (`local3d.js`).
+- Video: `canvas.captureStream()` + `MediaRecorder`, 8 saniyede tam bir tur.
+- İsteğe bağlı renk: yerel `dev-server.js` üzerinden Gemini görsel API'si. Anahtar yalnızca `.env`.

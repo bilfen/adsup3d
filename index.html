@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bilfen AD'S UP — Görselden 3D Animasyon Videosuna</title>
-<meta name="description" content="Görselini yükle, Hunyuan3D-2 ile 3D modele dönüşsün; tarayıcında dönen modeli video olarak indir.">
+<title>Bilfen AD'S UP — Görselden renkli 3D videoya</title>
+<meta name="description" content="Görselini yükle, renkli 3D hali kendi etrafında dönsün, videoyu bilgisayarına indir. Ücretsiz, tarayıcıda çalışır.">
 <link rel="icon" href="assets/banner.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -72,6 +72,9 @@
   .drop::after{content:"";position:absolute;inset:-2.5px;border-radius:20px;pointer-events:none}
   @media(max-width:640px){.drop{padding:40px 20px;min-height:190px}.drop b{font-size:20px}.drop .em{font-size:44px}.drop .hint{font-size:14px;padding:8px 16px}}
   .preview{max-width:300px;max-height:220px;border-radius:12px;display:none;margin:16px auto 4px;box-shadow:var(--shadow)}
+  .geminiRow{display:none;align-items:flex-start;gap:10px;margin-top:14px;font-size:14px;line-height:1.45;background:#fdf3e3;border:1px solid #f3e0b8;padding:10px 14px;border-radius:12px}
+  .geminiRow input{margin-top:3px}
+  .geminiRow small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
   button{font:inherit;border:0;border-radius:999px;padding:12px 24px;cursor:pointer;font-weight:600;transition:.15s}
   .btn-primary{background:linear-gradient(90deg,var(--red),var(--amber),var(--green),var(--blue),var(--magenta));color:#fff;box-shadow:0 6px 18px -6px rgba(18,116,191,.4)}
   .btn-primary:hover{filter:brightness(1.07)}
@@ -154,13 +157,13 @@
     <img src="assets/banner.jpg" alt="Bilfen AD'S UP">
     <div class="heroBody">
       <div>
-        <h1>Görselden <span class="grad">3D Animasyon Videosuna</span></h1>
-        <p>Çizimini veya fotoğrafını yükle; Tencent Hunyuan3D-2 yapay zekâsı görseli 3D modele dönüştürsün. Modeli tarayıcında dönerken izle, tek tuşla video olarak indir.</p>
+        <h1>Görselden <span class="grad">renkli 3D videoya</span></h1>
+        <p>Çizimini veya fotoğrafını yükle. Renkli 3D hali bu bilgisayarda oluşur, kendi etrafında bir tam tur döner ve video dosyası iner. Ücret yok, hesap yok.</p>
         <div class="badges">
-          <span class="badge b-blue">🧠 Hunyuan3D-2 AI</span>
-          <span class="badge b-green">🔒 Tamamen tarayıcında</span>
-          <span class="badge b-amber">⚡ ~1 dakikada hazır</span>
-          <span class="badge">🆓 Ücretsiz · Kurulum yok</span>
+          <span class="badge b-blue">🎨 Renkli 3D</span>
+          <span class="badge b-green">🔄 360° dönüş</span>
+          <span class="badge b-amber">⬇️ Video indir</span>
+          <span class="badge">🆓 Ücretsiz</span>
         </div>
       </div>
     </div>
@@ -169,15 +172,15 @@
 
 <main>
   <div class="steps">
-    <div class="step"><span class="n">Adım 1</span><b>Görsel yükle</b><span>Nesne, oyuncak, karakter fotoğrafı veya kendi çizimin</span></div>
-    <div class="step"><span class="n">Adım 2</span><b>3D model üret</b><span>Hunyuan3D-2 görseli 3D nesneye dönüştürür</span></div>
-    <div class="step"><span class="n">Adım 3</span><b>Canlı izle / kaydet</b><span>Model tarayıcında döner; fareyle de çevirebilirsin</span></div>
-    <div class="step"><span class="n">Adım 4</span><b>Video indir</b><span>Dönen modeli video dosyası olarak bilgisayarına kaydet</span></div>
+    <div class="step"><span class="n">Adım 1</span><b>Görsel yükle</b><span>Çizim, logo veya tek nesne fotoğrafı</span></div>
+    <div class="step"><span class="n">Adım 2</span><b>Renkli 3D</b><span>Görsel bu bilgisayarda kabartmalı, renkli bir modele dönüşür</span></div>
+    <div class="step"><span class="n">Adım 3</span><b>360° döner</b><span>Model kendi etrafında tam bir tur atar</span></div>
+    <div class="step"><span class="n">Adım 4</span><b>Video iner</b><span>Tur bitince video bilgisayarına kaydolur</span></div>
   </div>
 
   <section class="card" id="yukle">
     <h2><span class="num">1</span> Görsel yükle</h2>
-    <p class="sub">Sade veya düz arka planlı, tek nesne fotoğrafları en iyi sonucu verir.</p>
+    <p class="sub">Düz arka planlı tek çizim veya nesne en temiz sonucu verir. İlk seferde 3D modeli indirilir (yaklaşık 30 MB), sonrası bu bilgisayarda hızlıdır. Ücret yok.</p>
     <div class="drop" id="drop">
       <div class="em">🖼️</div>
       <div><b>Görseli buraya sürükle</b></div>
@@ -185,7 +188,13 @@
     </div>
     <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp" hidden>
     <img id="preview" class="preview" alt="Önizleme">
-    <button id="btnOlustur" class="btn-primary" disabled>✨ 3D Model Oluştur</button>
+    <label id="geminiRow" class="geminiRow">
+      <input type="checkbox" id="geminiOn">
+      <span>Gemini ile renkleri canlandır
+        <small>İşaretlenirse görsel Google Gemini’ye gider ve daha canlı renkle geri döner. 3D model ve video yine bu bilgisayarda, ücretsiz üretilir. İşaretlemezsen görsel bilgisayardan çıkmaz.</small>
+      </span>
+    </label>
+    <button id="btnOlustur" class="btn-primary" disabled>✨ Renkli 3D yap, 360° videoyu indir</button>
     <div class="status" id="status">Hazır — bir görsel seçin.</div>
     <div class="bar" id="bar" style="display:none"><i id="barFill"></i></div>
     <div class="log" id="log"></div>
@@ -193,7 +202,7 @@
 
   <section class="card" id="secViz" style="display:none">
     <h2 id="viz"><span class="num">2</span> Modelini izle ve videoya çevir</h2>
-    <p class="sub">Model otomatik döner; kayıt sırasında dönüş otomatik başlar. İstersen fareyle tutup kendin de çevirebilirsin.</p>
+    <p class="sub">Model hazır olunca kendi etrafında bir tur döner, video kaydı biter ve dosya iner. İndirme başlamazsa alttaki İndir düğmesini kullan. Fareyle de çevirebilirsin.</p>
     <div class="recgrid">
       <div class="side">
         <button id="btnTurn" class="btn-ghost">🔄 Dönmeyi başlat / durdur</button>
@@ -212,12 +221,12 @@
 
   <section class="card" id="bilgi">
     <h2><span class="num">3</span> Nasıl çalışır?</h2>
-    <p class="sub">Dört adımda, hiçbir kurulum ve hesap gerektirmeden:</p>
+    <p class="sub">Hesap yok, ücret yok. 3D model ve video bu bilgisayarın tarayıcısında üretilir.</p>
     <div class="info">
-      <div class="infoItem"><div class="ic">📤</div><div><b>Görsel doğrudan gider</b><p>Yüklediğin görsel tarayıcıdan Hugging Face'teki resmî Tencent Hunyuan3D-2 servisine gider; hiçbir Bilfen sunucusunda saklanmaz.</p></div></div>
-      <div class="infoItem"><div class="ic">🧊</div><div><b>3D model oluşur</b><p>Yapay zekâ, görseldeki nesneyi yorumlayıp saniyeler içinde gerçek bir 3D model (.glb) üretir.</p></div></div>
-      <div class="infoItem"><div class="ic">🎬</div><div><b>Tarayıcında döner</b><p>Model WebGL ile cihazında canlı gösterilir; otomatik döner, sen de fareyle çevirebilirsin.</p></div></div>
-      <div class="infoItem"><div class="ic">⬇️</div><div><b>Video indir</b><p>Kayıt başlatıldığında dönen model videoya çevrilir; tek tuşla bilgisayarına iner. Tüm süreç tarayıcıda çalışır.</p></div></div>
+      <div class="infoItem"><div class="ic">📤</div><div><b>Görsel cihazda kalır</b><p>3D dönüşümü için görsel bir sunucuya gitmez. Derinlik ve kesme modelleri ilk seferde indirilir, sonra tarayıcı önbelleğinde durur.</p></div></div>
+      <div class="infoItem"><div class="ic">🧊</div><div><b>Renkli kabartma</b><p>Görselin kendi renkleri modelin üzerine işlenir. Kenarı kalın ve renkli olduğu için dönüşte kart gibi kaybolmaz.</p></div></div>
+      <div class="infoItem"><div class="ic">🎬</div><div><b>Tam bir tur</b><p>Kayıt 8 saniye sürer ve model tam 360 derece döner. İstersen fareyle tutup kendi açını da seçebilirsin.</p></div></div>
+      <div class="infoItem"><div class="ic">⬇️</div><div><b>Video indir</b><p>Tur bitince WebM veya MP4 dosyası iner. Chrome veya Edge kullan. Sayfadaki İndir düğmesi aynı dosyayı tekrar kaydeder.</p></div></div>
     </div>
   </section>
 </main>
@@ -226,7 +235,7 @@
   <div class="footerIn">
     <span class="dot"></span>
     <span>Bilfen AD'S UP · Görselden 3D Videosuna Atölyesi</span>
-    <span class="right">Model: Tencent-Hunyuan/Hunyuan3D-2 (ücretsiz Hugging Face Space API)</span>
+    <span class="right">Ücretsiz tarayıcı 3D · 360° video bu bilgisayarda</span>
   </div>
 </footer>
 

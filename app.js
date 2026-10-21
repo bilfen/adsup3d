@@ -1,6 +1,7 @@
-// AD'S UP — Görselden 3D videoya
-// Akış: görsel yükle -> Hunyuan3D-2 Space'lerine gönder (renkli önce, beyaz yedek) -> .glb al
-//       -> Three.js ile göster -> dönerken MediaRecorder ile kaydet -> WebM indir.
+// AD'S UP — Görselden renkli 3D videoya
+// Akış: görsel yükle -> tarayıcıda derinlik rölyefi (ücretsiz, anahtarsız)
+//       -> isteğe bağlı Gemini renk canlandırma (anahtar yalnızca yerel sunucuda)
+//       -> Three.js ile 360° döndür -> MediaRecorder -> video indir.
 
 const $ = (id) => document.getElementById(id);
 const drop = $("drop"), preview = $("preview"), btnOlustur = $("btnOlustur");
@@ -10,10 +11,17 @@ const secViz = $("secViz"), vidList = $("vidList");
 const canvas = $("c3d");
 
 import { generateLocal3D, local3dProgress } from "./local3d.js";
-local3dProgress((m) => log(m));
 
 const log = (m) => { logEl.style.display = "block"; logEl.textContent += m + "\n"; logEl.scrollTop = 1e9; };
 const setStatus = (t, pct) => { statusEl.textContent = t; if (pct != null) { bar.style.display = "block"; barFill.style.width = pct + "%"; } };
+local3dProgress((m) => {
+  log(m);
+  const mb = String(m).match(/(\d+)\s*\/\s*(\d+)\s*MB/i);
+  if (mb) {
+    const pct = Math.max(12, Math.min(88, Math.round((Number(mb[1]) / Math.max(1, Number(mb[2]))) * 70 + 12)));
+    setStatus(m, pct);
+  }
+});
 
 // ---------- 1) Görsel seçimi ----------
 let file = null;
@@ -37,176 +45,82 @@ function setFile(f) {
   log("Görsel seçildi: " + f.name + " (" + Math.round(f.size / 1024) + " KB)");
 }
 
-// ---------- 2) Hunyuan3D-2 API ----------
-// Ana space GPU kotası dolunca "event: error" döner; yedek Space'ler zincire eklendi.
-const SPACES = [
-  "https://tencent-hunyuan3d-2.hf.space",   // resmî
-  "https://tencent-hunyuan3d-2mv.hf.space"  // resmî MV yedeği (aynı API imzası)
-];
+// ---------- 2) Ücretsiz 3D (tarayıcı) + isteğe bağlı Gemini renk ----------
+// Gemini 3D model üretmez. Anahtar tarayıcıya yazılmaz; yalnızca yerel sunucu
+// /.env içindeki GEMINI_API_KEY ile renk canlandırabilir. 3D her zaman cihazdadir.
 
-async function uploadTo(base, f) {
-  const fd = new FormData();
-  fd.append("files", f, f.name);
-  const r = await fetch(base + "/upload", { method: "POST", body: fd });
-  if (!r.ok) throw new Error("Yükleme hatası: HTTP " + r.status);
-  const arr = await r.json();
-  return { path: arr[0], meta: { _type: "gradio.FileData" }, orig_name: f.name };
+let geminiOk = false;
+
+async function shrinkForGemini(src) {
+  const bmp = await createImageBitmap(src);
+  const max = 1024;
+  const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
+  const w = Math.max(1, Math.round(bmp.width * scale));
+  const h = Math.max(1, Math.round(bmp.height * scale));
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  c.getContext("2d").drawImage(bmp, 0, 0, w, h);
+  bmp.close?.();
+  const blob = await new Promise((res) => c.toBlob(res, "image/jpeg", 0.9));
+  if (!blob) throw new Error("Görsel küçültülemedi");
+  return new File([blob], "gorsel.jpg", { type: "image/jpeg" });
 }
 
-// Tek bir space+endpoint denemesi: yükle → kuyruğa al → SSE ile sonucu bekle → file value döndür
-async function tryEndpoint(base, fn, file, label) {
-  const fileObj = await uploadTo(base, file);
-  log("Yüklendi → " + base.replace("https://", "").split(".hf")[0] + " | " + fn);
-  const join = await fetch(base + "/call/" + fn, {
+async function enhanceWithGemini(src) {
+  const small = await shrinkForGemini(src);
+  const buf = new Uint8Array(await small.arrayBuffer());
+  let bin = "";
+  for (let i = 0; i < buf.length; i += 0x8000) {
+    bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+  }
+  const r = await fetch("/api/enhance", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      data: [
-        null,                     // caption (yok)
-        fileObj,                  // image
-        null, null, null, null,   // multiview görselleri (yok)
-        30,                       // steps
-        5.0,                      // guidance_scale
-        Math.floor(Math.random() * 10000), // seed
-        256,                      // octree_resolution
-        true,                     // arka plan sil (rembg)
-        8000,                     // num_chunks
-        true                      // randomize seed
-      ]
-    })
+    body: JSON.stringify({ mime: small.type || "image/jpeg", data: btoa(bin) })
   });
-  const j = await join.json();
-  if (!join.ok || !j.event_id) throw new Error("Kuyruk hatası: " + JSON.stringify(j).slice(0, 200));
-
-  setStatus(label + " kuyrukta… (bekleme sürer)", 40);
-
-  const sse = new EventSource(base + "/call/" + fn + "/" + j.event_id);
-  const result = await new Promise((resolve, reject) => {
-    let ticks = 0;
-    const timer = setInterval(() => {
-      ticks++;
-      // yavaş ilerleme: 40 -> 80
-      if (ticks % 5 === 0) { let w = parseFloat(barFill.style.width) || 40; w = Math.min(80, w + 3); setStatus(label + "… " + Math.round(w) + "%", w); }
-    }, 4000);
-    sse.addEventListener("process_generating", (e) => log("…işlem: " + String(e.data || "").slice(0, 120)));
-    sse.addEventListener("complete", (e) => {
-      clearInterval(timer); sse.close();
-      try {
-        const chunks = JSON.parse(e.data);
-        const arr = Array.isArray(chunks) ? chunks : [chunks];
-        // file-benzeri değerleri topla
-        const files = [];
-        for (const c of arr) {
-          const v = c && (c.value || (c.path ? c : null));
-          if (v && (v.url || v.path)) files.push(v);
-        }
-        if (!files.length) { reject(new Error("Sonuç bulunamadı: " + String(e.data).slice(0, 200))); return; }
-        // generation_all => [white, textured, html, stats] → texturelıyı seç; shape => ilki
-        const pick = fn === "generation_all"
-          ? (files.find(v => String(v.path || "").includes("textured") || String(v.orig_name || "").includes("textured")) || files[files.length - 1])
-          : files[0];
-        resolve(pick);
-      } catch (err) { reject(err); }
-    });
-    sse.addEventListener("error", (e) => { clearInterval(timer); sse.close(); reject(new Error("GPU kota/kapasite reddi (SSE)")); });
-  });
-  return result;
+  if (!r.ok) throw new Error((await r.text()).slice(0, 180) || ("HTTP " + r.status));
+  const blob = await r.blob();
+  if (!blob.type.startsWith("image/")) throw new Error("Gemini görsel döndürmedi");
+  return new File([blob], "renkli.png", { type: blob.type });
 }
 
-// /file=<path> ile GLB indirme adresleri; magic "glTF" doğrulaması fetchGlb'de
-const glbDownloadURLs = (base, result) => {
-  const cands = [];
-  if (result.path) {
-    cands.push(base + "/file=" + result.path);
-    cands.push(base + "/gradio_api/file=" + result.path);
-  }
-  if (result.url) cands.push(result.url);
-  return cands;
-};
+async function probeGemini() {
+  try {
+    const r = await fetch("/api/health");
+    if (!r.ok) return;
+    const j = await r.json();
+    geminiOk = !!j.gemini;
+    const row = $("geminiRow");
+    if (row) row.style.display = geminiOk ? "flex" : "none";
+  } catch (e) { /* statik sayfa: Gemini yok, 3D yine çalışır */ }
+}
+probeGemini();
 
-async function fetchGlb(base, result) {
-  setStatus("3D model indiriliyor…", 85);
-  for (const u of glbDownloadURLs(base, result)) {
+async function generate3D(srcFile) {
+  setStatus("Görsel hazırlanıyor…", 8);
+  log("Yükleniyor: " + srcFile.name);
+  let work = srcFile;
+  const wantGemini = geminiOk && $("geminiOn") && $("geminiOn").checked;
+  if (wantGemini) {
     try {
-      const blob = await (await fetch(u)).blob();
-      const head = new Uint8Array(await blob.slice(0, 4).arrayBuffer());
-      const magic = String.fromCharCode(...head);
-      if (magic === "glTF") return blob;
-      log("Uyumsuz yanıt (" + magic + ") denendi: " + u.slice(-40));
-    } catch (e) { log("İndirme denemesi başarısız: " + u.slice(-40)); }
-  }
-  return null;
-}
-
-async function tryGenerationChain(file) {
-  // Zincir: yalnızca generation_all (renkli). shape_generation (beyaz) yarışa alınmıyor:
-  // yerel renkli sonuçtan önce bitip beyaz modeli göstermesin diye.
-  let lastErr = null;
-  for (const base of SPACES) {
-    const sName = base.replace("https://", "").split(".hf")[0];
-    for (const fn of ["generation_all"]) {
-      const textured = fn === "generation_all";
-      const label = (textured ? "Renkli 3D üretiliyor" : "3D üretiliyor (yedek)") + " — " + sName;
-      try {
-        setStatus((textured ? "Renkli 3D deneniyor" : "Beyaz 3D deneniyor (yedek)") + "…", 25);
-        log((textured ? "generation_all (renkli)" : "shape_generation (beyaz)") + " → " + sName);
-        const result = await tryEndpoint(base, fn, file, label);
-        const glbBlob = await fetchGlb(base, result);
-        if (!glbBlob) throw new Error("Model dosyası indirilemedi");
-        setStatus("Model hazır!" + (textured ? " (renkli)" : " (beyaz)"), 100);
-        log("Model hazır: " + (textured ? "TEXTURELI" : "BEYAZ") + " mesh");
-        return glbBlob;
-      } catch (e) {
-        lastErr = e;
-        log("Başarısız [" + sName + " / " + fn + "]: " + e.message + " → sıradaki adıma geçiliyor");
-        await new Promise(r => setTimeout(r, 800));
-      }
+      setStatus("Gemini renkleri canlandırıyor…", 18);
+      log("Gemini: görsel Google'a gider, renk canlanır. 3D bu bilgisayarda üretilir.");
+      const enhanced = await enhanceWithGemini(srcFile);
+      work = enhanced;
+      preview.src = URL.createObjectURL(enhanced);
+      preview.style.display = "block";
+      log("Gemini renkli görsel hazır");
+    } catch (e) {
+      log("Gemini atlandı: " + e.message + " — orijinal görselle devam");
     }
   }
-  throw new Error("Hugging Face GPU kotası şu anda dolu (son hata: " + (lastErr ? lastErr.message : "?") + ")");
-}
-
-async function generate3D(file) {
-  setStatus("Görsel hazırlanıyor…", 10);
-  log("Yükleniyor: " + file.name);
-
-  // 1) Yerel motoru arka planda başlat — sunucu yok, kota yok, GARANTİ sonuc budur
-  const localTask = generateLocal3D(file)
-    .then((glb) => ({ src: "local", glb }))
-    .catch((e) => { log("Yerel motor: " + e.message); return { src: "local-err", err: e }; });
-
-  // 2) HF AI zinciri (HD renkli): 2 tur, arada 15 sn — paralel çalışıyor
-  const hfTask = (async () => {
-    let lastErr = null;
-    for (let a = 0; a < 2; a++) {
-      try { return { src: "hf", glb: await tryGenerationChain(file) }; }
-      catch (e) {
-        lastErr = e;
-        if (a === 0) {
-          log("HF zinciri 1. tur: " + e.message + " → 15 sn sonra 2. tur (yerel motor paralel hazırlanıyor)");
-          await new Promise((r) => setTimeout(r, 15_000));
-        }
-      }
-    }
-    return { src: "hf-err", err: lastErr };
-  })();
-
-  // 3) Hangi motor önce biterse onu göster
-  let winner = await Promise.race([localTask, hfTask]);
-  if (winner.src === "local-err") winner = await hfTask;
-  else if (winner.src === "hf-err") winner = await localTask;
-
-  if (!winner || winner.src === "hf-err" || winner.src === "local-err") {
-    throw new Error("3D üretilemedi: " + ((winner && winner.err && winner.err.message) || "bilinmeyen") + " — daha sade görsel deneyin");
-  }
-  if (winner.src === "hf") {
-    setStatus("Model hazır! (AI HD, renkli)", 100);
-    log("Sonuç: Hunyuan3D AI modeli (HD kalite, renkli)");
-  } else {
-    setStatus("Model hazır! (yerel motor, renkli)", 100);
-    log("Sonuç: tarayıcıda yerel üretim — sunucu yok, kota yok, herkes için çalışır");
-  }
-  return winner.glb;
+  setStatus("Renkli 3D model bu bilgisayarda üretiliyor…", 30);
+  log("Yerel motor: sunucu kotası yok, ücret yok");
+  const glb = await generateLocal3D(work);
+  setStatus("Model hazır — 360° video kaydı başlıyor", 100);
+  log("Renkli 3D hazır");
+  return glb;
 }
 
 // ---------- 3) Three.js sahne ----------
@@ -218,22 +132,95 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 const logoImg = new Image();
 logoImg.src = "assets/logo.png";
 
-let renderer, scene, camera, controls, model = null, turning = false, frameId = 0, recTimer = 0;
+let renderer, scene, camera, controls, model = null, floor = null, rimLights = [];
+let turning = false, frameId = 0, recTimer = 0;
+
+function makeStageTexture() {
+  const c = document.createElement("canvas");
+  c.width = 1024;
+  c.height = 1024;
+  const g = c.getContext("2d");
+  const bg = g.createRadialGradient(512, 420, 40, 512, 520, 700);
+  bg.addColorStop(0, "#314864");
+  bg.addColorStop(0.5, "#152033");
+  bg.addColorStop(1, "#070b14");
+  g.fillStyle = bg;
+  g.fillRect(0, 0, 1024, 1024);
+  const orbs = [["#e63946", 190, 230, 280], ["#f4a417", 840, 190, 250], ["#2a9d53", 170, 830, 270], ["#1274bf", 860, 790, 290], ["#b30f76", 520, 940, 220]];
+  for (const [col, x, y, rad] of orbs) {
+    const rg = g.createRadialGradient(x, y, 0, x, y, rad);
+    rg.addColorStop(0, col);
+    rg.addColorStop(1, "rgba(0,0,0,0)");
+    g.globalAlpha = 0.38;
+    g.fillStyle = rg;
+    g.beginPath();
+    g.arc(x, y, rad, 0, Math.PI * 2);
+    g.fill();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function makeFloorTexture() {
+  const c = document.createElement("canvas");
+  c.width = 512;
+  c.height = 512;
+  const g = c.getContext("2d");
+  const colors = ["#e63946", "#f4a417", "#2a9d53", "#1274bf", "#b30f76"];
+  for (let i = 0; i < 48; i++) {
+    g.beginPath();
+    g.moveTo(256, 256);
+    g.arc(256, 256, 248, (i / 48) * Math.PI * 2, ((i + 1) / 48) * Math.PI * 2);
+    g.closePath();
+    g.fillStyle = colors[i % colors.length];
+    g.globalAlpha = 0.9;
+    g.fill();
+  }
+  g.globalAlpha = 1;
+  g.beginPath();
+  g.arc(256, 256, 168, 0, Math.PI * 2);
+  g.fillStyle = "#0e1726";
+  g.fill();
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 function initScene() {
   if (scene) return;
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
-  renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.12;
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+  renderer.setSize(canvas.clientWidth || 640, canvas.clientHeight || 480, false);
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0f172a);
-  camera = new THREE.PerspectiveCamera(45, canvas.clientWidth / canvas.clientHeight, 0.1, 100);
-  camera.position.set(0, 0.4, 3.2);
-  const hemi = new THREE.HemisphereLight(0xffffff, 0x333333, 1.0);
-  const dir = new THREE.DirectionalLight(0xffffff, 2.4);
-  dir.position.set(3, 5, 4);
-  const dir2 = new THREE.DirectionalLight(0xffffff, 1.4);
-  dir2.position.set(-4, 2, -3);
-  scene.add(hemi, dir, dir2);
+  scene.background = makeStageTexture();
+  camera = new THREE.PerspectiveCamera(40, (canvas.clientWidth || 640) / (canvas.clientHeight || 480), 0.1, 100);
+  camera.position.set(0, 0.42, 3.15);
+  const hemi = new THREE.HemisphereLight(0xfff6ea, 0x1b2740, 1.25);
+  const key = new THREE.DirectionalLight(0xfff3df, 2.3);
+  key.position.set(2.6, 4.2, 4.4);
+  const fill = new THREE.DirectionalLight(0xc5d8ff, 0.7);
+  fill.position.set(-3.2, 1.4, 2);
+  rimLights = [
+    new THREE.PointLight(0xe63946, 6, 14),
+    new THREE.PointLight(0x1274bf, 6, 14),
+    new THREE.PointLight(0xf4a417, 4, 12)
+  ];
+  rimLights[0].position.set(-2.2, 1.1, 1.4);
+  rimLights[1].position.set(2.3, 0.6, -1.6);
+  rimLights[2].position.set(0.2, 2.4, 1.8);
+  scene.add(hemi, key, fill, ...rimLights);
+  floor = new THREE.Group();
+  const disc = new THREE.Mesh(
+    new THREE.CircleGeometry(1.2, 72),
+    new THREE.MeshBasicMaterial({ map: makeFloorTexture(), transparent: true, opacity: 0.92, side: THREE.DoubleSide })
+  );
+  disc.rotation.x = -Math.PI / 2;
+  floor.add(disc);
+  scene.add(floor);
   controls = new OrbitControls(camera, canvas);
   controls.target.set(0, 0, 0);
   controls.enableDamping = true;
@@ -281,6 +268,13 @@ function stepScene() {
   } else if (turning && model) {
     model.rotation.y += 0.012;
   }
+  if (rimLights.length) {
+    const t = performance.now() / 1000;
+    rimLights[0].position.x = Math.cos(t * 0.6) * 2.3;
+    rimLights[0].position.z = Math.sin(t * 0.6) * 2.3;
+    rimLights[1].position.x = Math.cos(t * 0.6 + Math.PI) * 2.3;
+    rimLights[1].position.z = Math.sin(t * 0.6 + Math.PI) * 2.3;
+  }
   controls.update();
   renderer.render(scene, camera);
   if (recorder && recorder.state === "recording") {
@@ -305,13 +299,13 @@ function resize() {
 window.addEventListener("resize", resize);
 
 function showModel(glbBlob) {
+  secViz.style.display = "block";
   initScene();
   resize();
   if (!frameId) loop();
   const url = URL.createObjectURL(glbBlob);
   new GLTFLoader().load(url, (gltf) => {
     resize();
-    // Renk kontrolü: texture'lı mı?
     let textured = false, texInfo = "";
     gltf.scene.traverse((o) => {
       const m = o.material;
@@ -323,27 +317,42 @@ function showModel(glbBlob) {
     window.__adsup.lastModel = { textured, texInfo, size: glbBlob.size };
     log("RENK KONTROLÜ: " + (textured ? "✔ texture VAR (renkli, " + texInfo + ")" : "✖ texture YOK (beyaz/neutral mesh)"));
     if (model) scene.remove(model);
-    model = gltf.scene;
-    const box = new THREE.Box3().setFromObject(model);
+    const root = gltf.scene;
+    const box = new THREE.Box3().setFromObject(root);
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
+    root.position.set(-center.x, -center.y, -center.z);
+    const pivot = new THREE.Group();
+    pivot.add(root);
     const maxDim = Math.max(size.x, size.y, size.z) || 1;
-    model.position.x = -center.x; model.position.y = -center.y; model.position.z = -center.z;
-    model.scale.setScalar(1.6 / maxDim);
+    const fit = 1.7 / maxDim;
+    pivot.scale.setScalar(fit);
+    model = pivot;
     scene.add(model);
-    turning = true;
+    if (floor) floor.position.y = -(size.y * fit) / 2 - 0.03;
+    turning = false;
     URL.revokeObjectURL(url);
-    secViz.style.display = "block";
     secViz.scrollIntoView({ behavior: "smooth", block: "start" });
+    requestAnimationFrame(() => {
+      resize();
+      record360();
+    });
+  }, undefined, (err) => {
+    log("Model açılamadı: " + (err && err.message ? err.message : err));
+    setStatus("3D model sahnede açılamadı. Tekrar dene.");
   });
 }
 
 // ---------- 4) Video kaydı ----------
 let recorder = null, chunks = [];
 const composite = document.createElement("canvas"); // WebGL tuvali + logo katmanı
-const cctx = composite.getContext("2d");
+composite.setAttribute("aria-hidden", "true");
+composite.style.cssText = "position:fixed;left:-10000px;top:0;width:8px;height:8px;pointer-events:none";
+document.body.appendChild(composite);
+const cctx = composite.getContext("2d", { alpha: false });
 function pickMime() {
-  const cands = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm", "video/mp4"];
+  // MP4 önce: Chromium/Electron MediaRecorder MP4 kaydını destekliyorsa onu kullan; yoksa WebM'e düş.
+  const cands = ["video/mp4;codecs=avc1.42E01E", "video/mp4", "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
   return cands.find((m) => MediaRecorder.isTypeSupported(m)) || "";
 }
 
@@ -465,11 +474,11 @@ async function saveToDrive(blob, btn) {
     let token = driveToken || await getDriveToken();
     // token canlı değilse sessiz yenile
     let res;
-    try { res = await driveUpload(token, blob, "adsup-3d-video.webm", blob.type || "video/webm"); }
+    try { res = await driveUpload(token, blob, "adsup-3d-video." + (blob.type.includes("mp4") ? "mp4" : "webm"), blob.type || "video/webm"); }
     catch (e) {
       if (!/401|Oturum yenilenmeli/.test(e.message)) throw e;
       token = await getDriveToken();
-      res = await driveUpload(token, blob, "adsup-3d-video.webm", blob.type || "video/webm");
+      res = await driveUpload(token, blob, "adsup-3d-video." + (blob.type.includes("mp4") ? "mp4" : "webm"), blob.type || "video/webm");
     }
     driveToken = token;
     btn.textContent = "✔ Drive'a kaydedildi";
@@ -493,29 +502,47 @@ $("btnTurn").addEventListener("click", () => { turning = !turning; });
 const SPIN_MS = 8000;
 async function record360() {
   if (!model || spin || (recorder && recorder.state === "recording")) return;
+  if (typeof MediaRecorder === "undefined" || !HTMLCanvasElement.prototype.captureStream) {
+    setStatus("Bu tarayıcı video kaydedemiyor. Chrome veya Edge kullan.");
+    turning = true;
+    return;
+  }
   const btn = $("btnRec5");
   btn.disabled = true;
   turning = false;
   model.rotation.y = 0;
-  setStatus("🎬 360° video kaydediliyor… (" + SPIN_MS / 1000 + " sn)");
-  startRecording();
-  spin = { t0: performance.now(), dur: SPIN_MS };
-  await new Promise((r) => setTimeout(r, SPIN_MS + 60));
-  spin = null;
-  const blob = await stopRecording();
-  turning = true;
-  if (blob) {
-    const ext = blob.type.includes("mp4") ? "mp4" : "webm";
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "adsup-360-" + Date.now() + "." + ext;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setStatus("✔ 360° video indirildi (" + ext.toUpperCase() + ", " + Math.round(blob.size / 1024) + " KB)");
-    log("360° video hazır ve indirildi: " + a.download);
+  try {
+    setStatus("🎬 360° video kaydediliyor… (" + SPIN_MS / 1000 + " sn)");
+    startRecording();
+    spin = { t0: performance.now(), dur: SPIN_MS };
+    await new Promise((r) => setTimeout(r, SPIN_MS + 60));
+    spin = null;
+    const blob = await stopRecording();
+    turning = true;
+    if (blob && blob.size > 100) {
+      const ext = blob.type.includes("mp4") ? "mp4" : "webm";
+      const name = "adsup-360-" + Date.now() + "." + ext;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setStatus("✔ 360° video indirildi (" + ext.toUpperCase() + ", " + Math.round(blob.size / 1024) + " KB). İnmezse alttaki İndir düğmesine bas.");
+      log("360° video hazır: " + name);
+    } else {
+      setStatus("Video oluşmadı. Chrome veya Edge ile tekrar dene, ya da “360° dönüş videosu” düğmesine bas.");
+    }
+  } catch (e) {
+    spin = null;
+    if (recTimer) { clearInterval(recTimer); recTimer = 0; }
+    turning = true;
+    setStatus("Video kaydı olmadı: " + (e && e.message ? e.message : e));
+    log("Video hatası: " + (e && e.message ? e.message : e));
+  } finally {
+    btn.disabled = false;
   }
-  btn.disabled = false;
 }
 $("btnRec5").addEventListener("click", record360);
 $("btnRecManual").addEventListener("click", async () => {
