@@ -14,14 +14,7 @@ import { generateLocal3D, local3dProgress } from "./local3d.js";
 
 const log = (m) => { logEl.style.display = "block"; logEl.textContent += m + "\n"; logEl.scrollTop = 1e9; };
 const setStatus = (t, pct) => { statusEl.textContent = t; if (pct != null) { bar.style.display = "block"; barFill.style.width = pct + "%"; } };
-local3dProgress((m) => {
-  log(m);
-  const mb = String(m).match(/(\d+)\s*\/\s*(\d+)\s*MB/i);
-  if (mb) {
-    const pct = Math.max(12, Math.min(88, Math.round((Number(mb[1]) / Math.max(1, Number(mb[2]))) * 70 + 12)));
-    setStatus(m, pct);
-  }
-});
+local3dProgress((m) => setStatus(m, 55));
 
 // ---------- 1) Görsel seçimi ----------
 let file = null;
@@ -115,11 +108,9 @@ async function generate3D(srcFile) {
       log("Gemini atlandı: " + e.message + " — orijinal görselle devam");
     }
   }
-  setStatus("Renkli 3D model bu bilgisayarda üretiliyor…", 30);
-  log("Yerel motor: sunucu kotası yok, ücret yok");
+  setStatus("Sonuç hazırlanıyor…", 40);
   const glb = await generateLocal3D(work);
-  setStatus("Model hazır — 360° video kaydı başlıyor", 100);
-  log("Renkli 3D hazır");
+  setStatus("Sonuç hazır — video kaydı başlıyor", 100);
   return glb;
 }
 
@@ -499,7 +490,7 @@ async function saveToDrive(blob, btn) {
 
 $("btnTurn").addEventListener("click", () => { turning = !turning; });
 // 360° video: tam bir tur (8 sn), bitince otomatik indirilir ve listeye eklenir
-const SPIN_MS = 8000;
+const SPIN_MS = 5000;
 async function record360() {
   if (!model || spin || (recorder && recorder.state === "recording")) return;
   if (typeof MediaRecorder === "undefined" || !HTMLCanvasElement.prototype.captureStream) {
