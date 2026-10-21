@@ -11,6 +11,19 @@
 
 Görsel hiçbir aracı sunucuya gitmez; cihaz ↔ Hugging Face arasında doğrudan akar.
 
+## Opsiyonel: "Google Drive'a Kaydet" düğmesi
+
+Video kartındaki **⬇ İndir** düğmesinin yanında **"☁ Drive'a Kaydet"** düğmesi vardır. Bunun çalışması için bir kezlik kurulum gerekir (Google'ın kuralı gereği öğrencinin kendi Google oturumu kullanılır):
+
+1. [console.cloud.google.com](https://console.cloud.google.com) adresinde ücretsiz bir proje oluşturun.
+2. **API & Services → Library** → **Google Drive API**'yi etkinleştirin.
+3. **API & Services → Credentials → Create Credentials → OAuth client ID** → Tür: **Web application**.
+   - **Authorized JavaScript origins**: `https://bilfen.github.io` (yerel test için `http://localhost:8080` de ekleyebilirsiniz).
+4. Aldığınız **Client ID**'yi (`xxxx.apps.googleusercontent.com`) `app.js` dosyasının başındaki `DRIVE.clientId` alanına yazın ve push'layın.
+5. *Opsiyonel — ortak klasör:* videoların otomatik birikeceği Google Drive klasörünün ID'sini `DRIVE.folderId` alanına yazın (klasör URL'sinde `.../folders/`'dan sonra gelen koddur). Bu klasöre yükleme yapacak öğrencilerin Google hesaplarına **Düzenleyici** izni paylaşın. `folderId` boşsa video öğrencinin kendi "Drive'ım" köküne gider.
+
+Çalışma şekli: ilk kayıtta öğrenci popup'ta Google hesabını seçip izin verir (`drive.file` kapsamı yalnızca uygulamanın yüklediği dosyalar için yetki verir); aynı oturumdaki sonraki kayıtlar sessiz geçer. Drive'da %100 otomatik anonim yükleme mümkün değildir (Google zorunlu tutar) — bu, tarayıcıdan yapılabilecek en otomatik haldir.
+
 ## GitHub Pages ile yayınlama (5 adım)
 
 1. Bu klasördeki **tüm dosyaları** (`index.html`, `app.js`, `assets/`, `dev-server.js`, bu README) Bilfen GitHub hesabında yeni bir repoya yükleyin (örn. `adsup-3d`).
@@ -34,6 +47,8 @@ Python varsa: `python -m http.server 8080` de aynı işi görür.
 - Sitede banner `assets/banner.jpg` olarak kullanılır — kendi görselinizle değiştirebilirsiniz.
 
 ## Teknoloji
+
+- Google Drive (opsiyonel): Google Identity Services token'ı ile Drive API multipart upload — tamamı tarayıcıdan.
 
 - Saf HTML/CSS/JS (framework yok) + [Three.js](https://threejs.org) 0.160 (CDN'den).
 - Hunyuan3D-2 Gradio HTTP API: `POST /upload` → `POST /call/shape_generation` → SSE (`/call/shape_generation/<event_id>`) → indirme `GET /file=<path>` ( doğrulanmış akış).

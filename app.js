@@ -345,8 +345,106 @@ function addVideoCard(url, ext, blob) {
   wrap.innerHTML = `
     <video controls src="${url}"></video>
     <div class="meta"><span>${ext.toUpperCase()} · ${kb} KB</span>
-    <a class="dl" href="${url}" download="adsup-3d-video.${ext}">⬇ İndir</a></div>`;
+    <span style="display:inline-flex;gap:6px;flex-wrap:wrap">
+      <a class="dl" href="${url}" download="adsup-3d-video.${ext}">⬇ İndir</a>
+      <button class="dl" data-drive>☁ Drive'a Kaydet</button>
+    </span></div>`;
+  wrap.querySelector("[data-drive]").addEventListener("click", (e) => saveToDrive(blob, e.currentTarget));
   vidList.prepend(wrap);
+}
+
+// ---------- 4.5) Google Drive'a kaydet ----------
+// Kullanımı: DRIVE.clientId alanına Google Cloud OAuth Web Client ID'nizi girin.
+// http://console.cloud.google.com → API & Services → OAuth Client ID (Web).
+// Authorized JavaScript origins:  https://bilfen.github.io  (ve yerel test için http://localhost:5500)
+// Google Drive API hizmetini etkinleştirin.
+// Adım 2: driveSaveTarget = "ogrenci" → öğrencinin Drive'ına; "ortak" → aşağıdaki klasöre.
+// Ayar tipi isterseniz ikisini de destekliyoruz (aşağıda).
+const DRIVE = {
+  clientId: "",           // ← ZORUNLU: sizin OAuth Web Client ID'niz ("xxxx.apps.googleusercontent.com")
+  folderId: "",           // ← İSTEĞE BAĞLI: ortak/ataca klasör ID (klasör tarifinden); boşsa "Driveım" köküne gider
+  scope: "https://www.googleapis.com/auth/drive.file"
+};
+let driveToken = null;
+
+function driveClientReady() {
+  return typeof google !== "undefined" && google.accounts && google.accounts.oauth2;
+}
+
+function getDriveToken() {
+  return new Promise((resolve, reject) => {
+    if (!driveClientReady()) return reject(new Error("Google modülü yüklenemedi — internet bağlantısını kontrol edin"));
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: DRIVE.clientId,
+      scope: DRIVE.scope,
+      callback: (resp) => {
+        if (resp.error) reject(new Error("Google oturumu reddedildi: " + resp.error));
+        else resolve(resp.access_token);
+      },
+      error_callback: (err) => reject(new Error(err.message || "Google oturumu açılamadı"))
+    });
+    client.requestAccessToken({ prompt: "" }); // açık oturum varsa sessiz, yoksa popup açar
+  });
+}
+
+async function driveUpload(token, blob, name, mime) {
+  const boundary = "ADSUP" + Math.random().toString(36).slice(2);
+  const meta = { name, mimeType: mime };
+  if (DRIVE.folderId) meta.parents = [DRIVE.folderId];
+  const body = new Blob([
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n`,
+    `--${boundary}\r\nContent-Type: ${mime}\r\n\r\n`,
+    blob,
+    `\r\n--${boundary}--\r\n`
+  ], { type: "multipart/related; boundary=" + boundary });
+  const r = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + token },
+    body
+  });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401) { driveToken = null; throw new Error("Oturum yenilenmeli (401)"); }
+  if (!r.ok) throw new Error("Drive hatası: " + (j.error && j.error.message || r.status));
+  return j;
+}
+
+async function saveToDrive(blob, btn) {
+  const original = btn.innerHTML;
+  try {
+    if (!DRIVE.clientId) {
+      btn.textContent = "☁ Önce ayar gerek";
+      setStatus("Drive'a kaydet için öğretmenin Google Client ID ayarı gerekli (adsup3d/app.js başındaki DRIVE bölümü). Kurulum talimatı proje README'sinde.");
+      await new Promise(r => setTimeout(r, 4000));
+      btn.innerHTML = original;
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = "☁ Yükleniyor…";
+    setStatus("Google Drive'a yükleniyor…", null);
+    let token = driveToken || await getDriveToken();
+    // token canlı değilse sessiz yenile
+    let res;
+    try { res = await driveUpload(token, blob, "adsup-3d-video.webm", blob.type || "video/webm"); }
+    catch (e) {
+      if (!/401|Oturum yenilenmeli/.test(e.message)) throw e;
+      token = await getDriveToken();
+      res = await driveUpload(token, blob, "adsup-3d-video.webm", blob.type || "video/webm");
+    }
+    driveToken = token;
+    btn.textContent = "✔ Drive'a kaydedildi";
+    setStatus("✔ Google Drive'a kaydedildi: " + res.name + " — " + (res.webViewLink || "https://drive.google.com/drive/my-drive"));
+    log("Drive'a yüklendi: id=" + res.id);
+  } catch (err) {
+    console.error(err);
+    btn.textContent = "⚠ Drive hatası";
+    setStatus("Drive'a kaydetmede hata: " + err.message);
+    log("Drive hatası: " + err.message);
+  } finally {
+    btn.disabled = false;
+    if (!btn.textContent.includes("✔"))
+      setTimeout(() => { btn.innerHTML = original; btn.disabled = false; }, 3500);
+    else setTimeout(() => { btn.innerHTML = original; }, 3500);
+  }
 }
 
 $("btnTurn").addEventListener("click", () => { turning = !turning; });
