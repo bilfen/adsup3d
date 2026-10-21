@@ -151,7 +151,7 @@ try {
       if ($path -eq "/api/health") {
         $flag = "false"
         if ($hasKey) { $flag = "true" }
-        Send-Text $res ("{""gemini"":" + $flag + ",""engine"":""local3d""}") "application/json; charset=utf-8" 200
+        Send-Text $res ("{""gemini"":" + $flag + ",""engine"":""mesh3d""}") "application/json; charset=utf-8" 200
         continue
       }
       if ($path -eq "/api/enhance" -and $req.HttpMethod -eq "POST") {

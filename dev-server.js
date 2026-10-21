@@ -135,7 +135,7 @@ const server = Bun.serve({
   async fetch(req) {
     const url = new URL(req.url);
     if (url.pathname === "/api/health") {
-      return json({ gemini: Boolean(process.env.GEMINI_API_KEY), engine: "local3d" });
+      return json({ gemini: Boolean(process.env.GEMINI_API_KEY), engine: "mesh3d" });
     }
     if (url.pathname === "/api/enhance" && req.method === "POST") {
       if (!process.env.GEMINI_API_KEY) return new Response("Gemini anahtarı yok. .env dosyasına GEMINI_API_KEY yaz.", { status: 503 });

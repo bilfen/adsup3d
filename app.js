@@ -1,5 +1,5 @@
 // AD'S UP — Görselden renkli 3D videoya
-// Akış: görsel yükle -> tarayıcıda derinlik rölyefi (ücretsiz, anahtarsız)
+// Akış: görsel yükle -> ücretsiz bulutta gerçek 3D model (GLB)
 //       -> isteğe bağlı Gemini renk canlandırma (anahtar yalnızca yerel sunucuda)
 //       -> Three.js ile 360° döndür -> MediaRecorder -> video indir.
 
@@ -10,15 +10,11 @@ const statusEl = $("status"), bar = $("bar"), barFill = $("barFill"), logEl = $(
 const secViz = $("secViz"), vidList = $("vidList");
 const canvas = $("c3d");
 
-import { buildRelief, preloadRelief, local3dProgress } from "./local3d.js";
+import { imageToGlb } from "./mesh3d.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 const log = (m) => { logEl.style.display = "block"; logEl.textContent += m + "\n"; logEl.scrollTop = 1e9; };
 const setStatus = (t, pct) => { statusEl.textContent = t; if (pct != null) { bar.style.display = "block"; barFill.style.width = pct + "%"; } };
-local3dProgress((m) => {
-  const pct = /%(\d+)/.exec(m);
-  setStatus(m, pct ? Math.min(92, Number(pct[1])) : 70);
-});
-preloadRelief();
 
 // ---------- 1) Görsel seçimi ----------
 let file = null;
@@ -42,9 +38,9 @@ function setFile(f) {
   log("Görsel seçildi: " + f.name + " (" + Math.round(f.size / 1024) + " KB)");
 }
 
-// ---------- 2) Ücretsiz 3D (tarayıcı) + isteğe bağlı Gemini renk ----------
+// ---------- 2) Ücretsiz 3D (bulut) + isteğe bağlı Gemini renk ----------
 // Gemini 3D model üretmez. Anahtar tarayıcıya yazılmaz; yalnızca yerel sunucu
-// /.env içindeki GEMINI_API_KEY ile renk canlandırabilir. 3D her zaman cihazdadir.
+// /.env içindeki GEMINI_API_KEY ile renk canlandırabilir. 3D model Hugging Face'te üretilir.
 
 let geminiOk = false;
 
@@ -102,7 +98,7 @@ async function generate3D(srcFile) {
   if (wantGemini) {
     try {
       setStatus("Gemini renkleri canlandırıyor…", 18);
-      log("Gemini: görsel Google'a gider, renk canlanır. 3D bu bilgisayarda üretilir.");
+      log("Gemini: görsel Google'a gider, renk canlanır. 3D model sonra bulutta üretilir.");
       const enhanced = await enhanceWithGemini(srcFile);
       work = enhanced;
       preview.src = URL.createObjectURL(enhanced);
@@ -112,10 +108,16 @@ async function generate3D(srcFile) {
       log("Gemini atlandı: " + e.message + " — orijinal görselle devam");
     }
   }
-  setStatus("Görselin 3D şekli çıkarılıyor…", 40);
-  const group = await buildRelief(work);
+  log("Görsel, gerçek 3D model için ücretsiz buluta gidiyor.");
+  const blob = await imageToGlb(work, (msg, pct) => setStatus(msg, pct));
+  setStatus("3D model sahneye alınıyor…", 96);
+  const buf = await blob.arrayBuffer();
+  const gltf = await new Promise((resolve, reject) => {
+    new GLTFLoader().parse(buf, "", resolve, (err) => reject(err instanceof Error ? err : new Error(String(err))));
+  });
+  if (!gltf.scene) throw new Error("3D model açılmadı");
   setStatus("3D hazır — dönüş başlıyor", 100);
-  return group;
+  return gltf.scene;
 }
 
 // ---------- 3) Three.js sahne ----------
@@ -293,18 +295,43 @@ function resize() {
 }
 window.addEventListener("resize", resize);
 
+function shadeMesh(root) {
+  root.traverse((o) => {
+    if (!o.isMesh || !o.material) return;
+    const list = Array.isArray(o.material) ? o.material : [o.material];
+    const next = list.map((m) => {
+      if (!m) return m;
+      if (m.map) m.map.colorSpace = THREE.SRGBColorSpace;
+      if (m.isMeshStandardMaterial || m.isMeshPhysicalMaterial) {
+        m.side = THREE.DoubleSide;
+        m.needsUpdate = true;
+        return m;
+      }
+      return new THREE.MeshStandardMaterial({
+        map: m.map || null,
+        color: m.color ? m.color.clone() : new THREE.Color(0xffffff),
+        vertexColors: !!m.vertexColors,
+        roughness: 0.62,
+        metalness: 0.04,
+        side: THREE.DoubleSide
+      });
+    });
+    o.material = Array.isArray(o.material) ? next : next[0];
+  });
+}
+
 function showModel(group) {
   secViz.style.display = "block";
   initScene();
   resize();
   if (!frameId) loop();
   if (model) scene.remove(model);
+  shadeMesh(group);
   const box = new THREE.Box3().setFromObject(group);
   const size = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());
   group.position.set(-center.x, -center.y, -center.z);
   const pivot = new THREE.Group();
-  pivot.rotation.x = -0.28;
   pivot.add(group);
   const maxDim = Math.max(size.x, size.y, size.z) || 1;
   const fit = 1.85 / maxDim;
@@ -313,8 +340,8 @@ function showModel(group) {
   scene.add(model);
   if (floor) floor.position.y = -(size.y * fit) / 2 - 0.05;
   turning = false;
-  window.__adsup.lastModel = { textured: true, depth: true, size: [size.x, size.y, size.z] };
-  log("3D şekil sahnede. Derinlik: " + size.z.toFixed(2));
+  window.__adsup.lastModel = { mesh: true, size: [size.x, size.y, size.z] };
+  log("3D model sahnede. Ölçü: " + size.x.toFixed(2) + " × " + size.y.toFixed(2) + " × " + size.z.toFixed(2));
   secViz.scrollIntoView({ behavior: "smooth", block: "start" });
   requestAnimationFrame(() => {
     resize();

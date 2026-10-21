@@ -1,19 +1,19 @@
 # Bilfen AD'S UP — Görselden 3D Animasyon Videosuna
 
-Öğrenci bir görsel yükler. Depth Anything görselin yakın yerlerini öne çıkarır; sonuç düz bir kart değil, kabarık bir 3D şekildir. Sahne yandan görünür, **5 saniyede 360°** döner ve video iner.
+Öğrenci bir görsel yükler. Görsel ücretsiz bulutta gerçek bir 3D modele (GLB) dönüşür. Model sahnede **5 saniyede 360°** döner ve video iner.
 
 ## Nasıl çalışır?
 
 1. Öğrenci görseli sürükleyip bırakır (veya tıklayarak seçer).
-2. Derinlik modeli görselin şeklini çıkarır. İlk açılışta motor bir kez iner (yaklaşık 19 MB), sonra aynı tarayıcıda kalır.
+2. Görsel, ücretsiz bir image-to-3D servisine gider ve renkli bir 3D model olarak geri döner. Bu genelde bir-iki dakika sürer; servis meşgulse sıradaki servis denenir.
 3. Model hazır olunca kendi etrafında 5 saniyelik tam bir tur döner. Video kendiliğinden inmeye başlar.
 4. İnmezse karttaki **⬇ İndir** aynı dosyayı tekrar kaydeder. Chrome veya Edge kullanın.
 
-3D için görsel bir sunucuya gitmez.
+3D model Hugging Face üzerindeki açık alanlarda üretilir (Stable Fast 3D, olmazsa Hunyuan3D 2.1, olmazsa Hunyuan3D). Video tarayıcıda kaydedilir. Bu servislerin ücretsiz GPU kotası dolunca üretim durur; birkaç dakika sonra yeniden denemek gerekir.
 
 ## İsteğe bağlı: Gemini ile renk canlandırma
 
-Gemini **3D model ve video üretmez**. Yalnızca işaretlenirse görseli daha canlı renge çevirir; 3D yine tarayıcıda yapılır.
+Gemini **3D model ve video üretmez**. Yalnızca işaretlenirse görseli daha canlı renge çevirir; 3D model yine bulutta üretilir.
 
 1. `.env.example` dosyasını `.env` yapın ve `GEMINI_API_KEY=` satırına anahtarı yazın.
 2. `bun dev-server.js` ile `http://localhost:8080` açın. Sayfada "Gemini ile renkleri canlandır" kutusu çıkar.
@@ -41,7 +41,7 @@ Video kartındaki **⬇ İndir** düğmesinin yanında **"☁ Drive'a Kaydet"** 
 3. 1–2 dakika sonra `https://<GitHub-kullanıcı-adı>.github.io/adsup-3d/` adresi yayında olur.
 4. Öğrenciler bu adresi tarayıcıda açar — kurulum, hesap veya anahtar gerekmez.
 
-> GitHub Pages üzerinde 3D ve video çalışır. Gemini renk kutusu yalnızca yerel sunucuda görünür; `.env` dosyasını repoya koymayın.
+> GitHub Pages üzerinde sayfa açılır. 3D model ücretsiz bulutta üretilir, video tarayıcıda kaydedilir. Gemini renk kutusu yalnızca yerel sunucuda görünür; `.env` dosyasını repoya koymayın.
 
 ## Yerel test
 
@@ -57,8 +57,8 @@ Bun yüklüyse `bun dev-server.js` aynı adresi açar. Python varsa `python -m h
 
 ## Sınırlar & iyi sonuç için ipuçları
 
-- En iyi sonuç: **sade/düz arka planlı**, tek nesne fotoğrafları (oyuncak, ürün, karakter, kendi çizimi…).
-- İlk açılışta derinlik motoru bir kez iner. Sonraki görseller aynı oturumda bu indirmeyi tekrarlamaz.
+- En iyi sonuç: **sade/düz arka planlı**, tek nesne fotoğrafları (oyuncak, ürün, karakter, kendi çizimi…). Kalabalık bir sahne tek bir kapalı modele dönüşmez.
+- Üretim ücretsiz GPU kuyruğuna bağlıdır. Kota doluysa sayfa bunu yazar; kabartma göstermez.
 - Çıktı videosu WebM formatındadır (Chrome/Edge ile MP4 destekli tarayıcılar otomatik MP4 seçebilir). İstenirse Windows'ta "Fotoğraflar" ya da VLC ile MP4'e dönüştürülebilir.
 - Sitede banner `assets/banner.jpg` olarak kullanılır — kendi görselinizle değiştirebilirsiniz.
 
@@ -67,6 +67,6 @@ Bun yüklüyse `bun dev-server.js` aynı adresi açar. Python varsa `python -m h
 - Google Drive (opsiyonel): Google Identity Services token'ı ile Drive API multipart upload — tamamı tarayıcıdan.
 
 - Saf HTML/CSS/JS (framework yok) + [Three.js](https://threejs.org) 0.160 (CDN'den).
-- 3D: Depth Anything V2 Small ile derinlik, sonra kalın renkli kabartma (`local3d.js`).
+- 3D: görsel Hugging Face üzerindeki Hunyuan3D / Stable Fast 3D alanına gider, dönen dosya GLB olur (`mesh3d.js`). Sahne Three.js.
 - Video: `canvas.captureStream()` + `MediaRecorder`, 5 saniyede tam bir tur.
 - İsteğe bağlı renk: yerel `dev-server.js` üzerinden Gemini görsel API'si. Anahtar yalnızca `.env`.
