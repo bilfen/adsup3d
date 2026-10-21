@@ -1,11 +1,11 @@
 # Bilfen AD'S UP — Görselden 3D Animasyon Videosuna
 
-Öğrenci bir görsel yükler. Site GitHub Pages’te durur. 3D motor sayfanın içindedir; onlarca megabaytlık model inmez. Sonuç birkaç saniyede renkli kabartma olur, **5 saniyede 360°** döner ve video iner.
+Öğrenci bir görsel yükler. Depth Anything görselin yakın yerlerini öne çıkarır; sonuç düz bir kart değil, kabarık bir 3D şekildir. Sahne yandan görünür, **5 saniyede 360°** döner ve video iner.
 
 ## Nasıl çalışır?
 
 1. Öğrenci görseli sürükleyip bırakır (veya tıklayarak seçer).
-2. Sayfadaki motor görseli hemen renkli bir 3D kabartmaya çevirir. Ayrı model dosyası inmez.
+2. Derinlik modeli görselin şeklini çıkarır. İlk açılışta motor bir kez iner (yaklaşık 19 MB), sonra aynı tarayıcıda kalır.
 3. Model hazır olunca kendi etrafında 5 saniyelik tam bir tur döner. Video kendiliğinden inmeye başlar.
 4. İnmezse karttaki **⬇ İndir** aynı dosyayı tekrar kaydeder. Chrome veya Edge kullanın.
 
@@ -58,7 +58,7 @@ Bun yüklüyse `bun dev-server.js` aynı adresi açar. Python varsa `python -m h
 ## Sınırlar & iyi sonuç için ipuçları
 
 - En iyi sonuç: **sade/düz arka planlı**, tek nesne fotoğrafları (oyuncak, ürün, karakter, kendi çizimi…).
-- Sayfa açılırken yalnızca sitenin kendi dosyaları iner. Ayrıca 30 MB’lık yapay zekâ modeli yoktur.
+- İlk açılışta derinlik motoru bir kez iner. Sonraki görseller aynı oturumda bu indirmeyi tekrarlamaz.
 - Çıktı videosu WebM formatındadır (Chrome/Edge ile MP4 destekli tarayıcılar otomatik MP4 seçebilir). İstenirse Windows'ta "Fotoğraflar" ya da VLC ile MP4'e dönüştürülebilir.
 - Sitede banner `assets/banner.jpg` olarak kullanılır — kendi görselinizle değiştirebilirsiniz.
 
@@ -67,6 +67,6 @@ Bun yüklüyse `bun dev-server.js` aynı adresi açar. Python varsa `python -m h
 - Google Drive (opsiyonel): Google Identity Services token'ı ile Drive API multipart upload — tamamı tarayıcıdan.
 
 - Saf HTML/CSS/JS (framework yok) + [Three.js](https://threejs.org) 0.160 (CDN'den).
-- 3D: sayfanın içindeki motor (`local3d.js`). Ayrı model indirilmez.
+- 3D: Depth Anything V2 Small ile derinlik, sonra kalın renkli kabartma (`local3d.js`).
 - Video: `canvas.captureStream()` + `MediaRecorder`, 5 saniyede tam bir tur.
 - İsteğe bağlı renk: yerel `dev-server.js` üzerinden Gemini görsel API'si. Anahtar yalnızca `.env`.

@@ -10,11 +10,15 @@ const statusEl = $("status"), bar = $("bar"), barFill = $("barFill"), logEl = $(
 const secViz = $("secViz"), vidList = $("vidList");
 const canvas = $("c3d");
 
-import { generateLocal3D, local3dProgress } from "./local3d.js";
+import { buildRelief, preloadRelief, local3dProgress } from "./local3d.js";
 
 const log = (m) => { logEl.style.display = "block"; logEl.textContent += m + "\n"; logEl.scrollTop = 1e9; };
 const setStatus = (t, pct) => { statusEl.textContent = t; if (pct != null) { bar.style.display = "block"; barFill.style.width = pct + "%"; } };
-local3dProgress((m) => setStatus(m, 55));
+local3dProgress((m) => {
+  const pct = /%(\d+)/.exec(m);
+  setStatus(m, pct ? Math.min(92, Number(pct[1])) : 70);
+});
+preloadRelief();
 
 // ---------- 1) Görsel seçimi ----------
 let file = null;
@@ -108,16 +112,16 @@ async function generate3D(srcFile) {
       log("Gemini atlandı: " + e.message + " — orijinal görselle devam");
     }
   }
-  setStatus("Sonuç hazırlanıyor…", 40);
-  const glb = await generateLocal3D(work);
-  setStatus("Sonuç hazır — video kaydı başlıyor", 100);
-  return glb;
+  setStatus("Görselin 3D şekli çıkarılıyor…", 40);
+  const group = await buildRelief(work);
+  setStatus("3D hazır — dönüş başlıyor", 100);
+  return group;
 }
 
 // ---------- 3) Three.js sahne ----------
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+
 
 // Videoya gömülecek logo (sağ üst)
 const logoImg = new Image();
@@ -189,7 +193,7 @@ function initScene() {
   scene = new THREE.Scene();
   scene.background = makeStageTexture();
   camera = new THREE.PerspectiveCamera(40, (canvas.clientWidth || 640) / (canvas.clientHeight || 480), 0.1, 100);
-  camera.position.set(0, 0.42, 3.15);
+  camera.position.set(1.2, 0.78, 2.35);
   const hemi = new THREE.HemisphereLight(0xfff6ea, 0x1b2740, 1.25);
   const key = new THREE.DirectionalLight(0xfff3df, 2.3);
   key.position.set(2.6, 4.2, 4.4);
@@ -255,7 +259,7 @@ function stepScene() {
   resize();
   if (spin && model) {
     const p = Math.min(1, (performance.now() - spin.t0) / spin.dur);
-    model.rotation.y = p * Math.PI * 2;
+    model.rotation.y = -0.7 + p * Math.PI * 2;
   } else if (turning && model) {
     model.rotation.y += 0.012;
   }
@@ -289,48 +293,32 @@ function resize() {
 }
 window.addEventListener("resize", resize);
 
-function showModel(glbBlob) {
+function showModel(group) {
   secViz.style.display = "block";
   initScene();
   resize();
   if (!frameId) loop();
-  const url = URL.createObjectURL(glbBlob);
-  new GLTFLoader().load(url, (gltf) => {
+  if (model) scene.remove(model);
+  const box = new THREE.Box3().setFromObject(group);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  group.position.set(-center.x, -center.y, -center.z);
+  const pivot = new THREE.Group();
+  pivot.rotation.x = -0.28;
+  pivot.add(group);
+  const maxDim = Math.max(size.x, size.y, size.z) || 1;
+  const fit = 1.85 / maxDim;
+  pivot.scale.setScalar(fit);
+  model = pivot;
+  scene.add(model);
+  if (floor) floor.position.y = -(size.y * fit) / 2 - 0.05;
+  turning = false;
+  window.__adsup.lastModel = { textured: true, depth: true, size: [size.x, size.y, size.z] };
+  log("3D şekil sahnede. Derinlik: " + size.z.toFixed(2));
+  secViz.scrollIntoView({ behavior: "smooth", block: "start" });
+  requestAnimationFrame(() => {
     resize();
-    let textured = false, texInfo = "";
-    gltf.scene.traverse((o) => {
-      const m = o.material;
-      if (m && m.map) {
-        textured = true;
-        if (!texInfo && m.map.image) texInfo = m.map.image.width + "x" + m.map.image.height;
-      }
-    });
-    window.__adsup.lastModel = { textured, texInfo, size: glbBlob.size };
-    log("RENK KONTROLÜ: " + (textured ? "✔ texture VAR (renkli, " + texInfo + ")" : "✖ texture YOK (beyaz/neutral mesh)"));
-    if (model) scene.remove(model);
-    const root = gltf.scene;
-    const box = new THREE.Box3().setFromObject(root);
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-    root.position.set(-center.x, -center.y, -center.z);
-    const pivot = new THREE.Group();
-    pivot.add(root);
-    const maxDim = Math.max(size.x, size.y, size.z) || 1;
-    const fit = 1.7 / maxDim;
-    pivot.scale.setScalar(fit);
-    model = pivot;
-    scene.add(model);
-    if (floor) floor.position.y = -(size.y * fit) / 2 - 0.03;
-    turning = false;
-    URL.revokeObjectURL(url);
-    secViz.scrollIntoView({ behavior: "smooth", block: "start" });
-    requestAnimationFrame(() => {
-      resize();
-      record360();
-    });
-  }, undefined, (err) => {
-    log("Model açılamadı: " + (err && err.message ? err.message : err));
-    setStatus("3D model sahnede açılamadı. Tekrar dene.");
+    record360();
   });
 }
 
@@ -501,7 +489,6 @@ async function record360() {
   const btn = $("btnRec5");
   btn.disabled = true;
   turning = false;
-  model.rotation.y = 0;
   try {
     setStatus("🎬 360° video kaydediliyor… (" + SPIN_MS / 1000 + " sn)");
     startRecording();
