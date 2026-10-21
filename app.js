@@ -9,6 +9,9 @@ const statusEl = $("status"), bar = $("bar"), barFill = $("barFill"), logEl = $(
 const secViz = $("secViz"), vidList = $("vidList");
 const canvas = $("c3d");
 
+import { generateLocal3D, local3dProgress } from "./local3d.js";
+local3dProgress((m) => log(m));
+
 const log = (m) => { logEl.style.display = "block"; logEl.textContent += m + "\n"; logEl.scrollTop = 1e9; };
 const setStatus = (t, pct) => { statusEl.textContent = t; if (pct != null) { bar.style.display = "block"; barFill.style.width = pct + "%"; } };
 
@@ -163,25 +166,46 @@ async function tryGenerationChain(file) {
 }
 
 async function generate3D(file) {
-  setStatus("Görsel sunucuya yükleniyor…", 10);
+  setStatus("Görsel hazırlanıyor…", 10);
   log("Yükleniyor: " + file.name);
 
-  // GPU kotası dolunca otomatik yeniden dene: 3 tur, aralarda geri sayımlı bekleme
-  const ATTEMPTS = 3, WAIT = 45_000;
-  let lastErr = null;
-  for (let a = 0; a < ATTEMPTS; a++) {
-    try {
-      return await tryGenerationChain(file);
-    } catch (e) {
-      lastErr = e;
-      if (a < ATTEMPTS - 1) log("Tur " + (a + 1) + " bitti: " + e.message + " → kota için beklenecek");
-      for (let s = 45; a < ATTEMPTS - 1 && s > 0; s -= 5) {
-        setStatus("GPU kotası dolu — " + s + " sn sonra otomatik tekrar… (deneme " + (a + 2) + "/" + ATTEMPTS + ")", 20);
-        await new Promise(r => setTimeout(r, 5_000));
+  // 1) Yerel motoru arka planda başlat — sunucu yok, kota yok, GARANTİ sonuc budur
+  const localTask = generateLocal3D(file)
+    .then((glb) => ({ src: "local", glb }))
+    .catch((e) => { log("Yerel motor: " + e.message); return { src: "local-err", err: e }; });
+
+  // 2) HF AI zinciri (HD renkli): 2 tur, arada 15 sn — paralel çalışıyor
+  const hfTask = (async () => {
+    let lastErr = null;
+    for (let a = 0; a < 2; a++) {
+      try { return { src: "hf", glb: await tryGenerationChain(file) }; }
+      catch (e) {
+        lastErr = e;
+        if (a === 0) {
+          log("HF zinciri 1. tur: " + e.message + " → 15 sn sonra 2. tur (yerel motor paralel hazırlanıyor)");
+          await new Promise((r) => setTimeout(r, 15_000));
+        }
       }
     }
+    return { src: "hf-err", err: lastErr };
+  })();
+
+  // 3) Hangi motor önce biterse onu göster
+  let winner = await Promise.race([localTask, hfTask]);
+  if (winner.src === "local-err") winner = await hfTask;
+  else if (winner.src === "hf-err") winner = await localTask;
+
+  if (!winner || winner.src === "hf-err" || winner.src === "local-err") {
+    throw new Error("3D üretilemedi: " + ((winner && winner.err && winner.err.message) || "bilinmeyen") + " — daha sade görsel deneyin");
   }
-  throw new Error("Hugging Face GPU kotası şu anda dolu. 2-5 dakika sonra tekrar deneyin.");
+  if (winner.src === "hf") {
+    setStatus("Model hazır! (AI HD, renkli)", 100);
+    log("Sonuç: Hunyuan3D AI modeli (HD kalite, renkli)");
+  } else {
+    setStatus("Model hazır! (yerel motor, renkli)", 100);
+    log("Sonuç: tarayıcıda yerel üretim — sunucu yok, kota yok, herkes için çalışır");
+  }
+  return winner.glb;
 }
 
 // ---------- 3) Three.js sahne ----------
@@ -281,6 +305,17 @@ function showModel(glbBlob) {
   const url = URL.createObjectURL(glbBlob);
   new GLTFLoader().load(url, (gltf) => {
     resize();
+    // Renk kontrolü: texture'lı mı?
+    let textured = false, texInfo = "";
+    gltf.scene.traverse((o) => {
+      const m = o.material;
+      if (m && m.map) {
+        textured = true;
+        if (!texInfo && m.map.image) texInfo = m.map.image.width + "x" + m.map.image.height;
+      }
+    });
+    window.__adsup.lastModel = { textured, texInfo, size: glbBlob.size };
+    log("RENK KONTROLÜ: " + (textured ? "✔ texture VAR (renkli, " + texInfo + ")" : "✖ texture YOK (beyaz/neutral mesh)"));
     if (model) scene.remove(model);
     model = gltf.scene;
     const box = new THREE.Box3().setFromObject(model);
@@ -461,6 +496,7 @@ $("btnRecManual").addEventListener("click", async () => {
 
 // Test / otomasyon kancası
 window.__adsup = { setFile, generate3D, showModel, composite };
+Object.defineProperty(window.__adsup, "lastModel", { value: null, writable: true });
 
 // Set up generate button
 btnOlustur.addEventListener("click", async () => {
