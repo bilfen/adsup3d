@@ -1,23 +1,23 @@
-# Bilfen AD'S UP — Görselden 3D Animasyon Videosuna
+# Bilfen AD'S UP — Görselden Videoya
 
-Öğrenci bir görsel yükler. Görsel ücretsiz bulutta gerçek bir 3D modele (GLB) dönüşür. Model sahnede **5 saniyede 360°** döner ve video iner.
+Öğrenci bir görsel yükler. Görsel, ücretsiz buluttaki açık kaynak [LTX-Video](https://github.com/Lightricks/LTX-Video) modeliyle yaklaşık 2 saniyelik bir MP4 olur ve bilgisayara iner.
 
 ## Nasıl çalışır?
 
-1. Öğrenci görseli sürükleyip bırakır (veya tıklayarak seçer).
-2. Görsel, ücretsiz bir image-to-3D servisine gider ve renkli bir 3D model olarak geri döner. Bu genelde bir-iki dakika sürer; servis meşgulse sıradaki servis denenir.
-3. Model hazır olunca kendi etrafında 5 saniyelik tam bir tur döner. Video kendiliğinden inmeye başlar.
+1. Öğrenci görseli sürükleyip bırakır (veya tıklayarak seçer). İsteğe bağlı bir hareket cümlesi yazabilir.
+2. Görsel, Hugging Face üzerindeki `Lightricks/ltx-video-distilled` alanına gider. Üretim genelde bir-iki dakika sürer.
+3. Dönen dosya MP4’tir. Sayfada oynar ve kendiliğinden inmeye başlar.
 4. İnmezse karttaki **⬇ İndir** aynı dosyayı tekrar kaydeder. Chrome veya Edge kullanın.
 
-3D model Hugging Face üzerindeki açık alanlarda üretilir (Stable Fast 3D, olmazsa Hunyuan3D 2.1, olmazsa Hunyuan3D). Video tarayıcıda kaydedilir. Bu servislerin ücretsiz GPU kotası dolunca üretim durur; birkaç dakika sonra yeniden denemek gerekir.
+Görsel bu bilgisayardan çıkar. Ücretsiz ekran kartı kotası aynı interneti paylaşan herkes için ortaktır. Kota dolunca sayfa bunu yazar; 3D kabartma veya sahte bir yakınlaştırma göstermez.
 
 ## İsteğe bağlı: Gemini ile renk canlandırma
 
-Gemini **3D model ve video üretmez**. Yalnızca işaretlenirse görseli daha canlı renge çevirir; 3D model yine bulutta üretilir.
+Gemini **video üretmez**. Yalnızca işaretlenirse görseli daha canlı renge çevirir; video yine LTX bulutunda üretilir.
 
 1. `.env.example` dosyasını `.env` yapın ve `GEMINI_API_KEY=` satırına anahtarı yazın.
 2. `bun dev-server.js` ile `http://localhost:8080` açın. Sayfada "Gemini ile renkleri canlandır" kutusu çıkar.
-3. Kutu işaretliyse görsel Google'a gider. İşaretsizse görsel bilgisayardan çıkmaz.
+3. Kutu işaretliyse görsel önce Google'a gider. Video için görsel her durumda Hugging Face’e gider.
 4. `.env` dosyasını GitHub'a, öğrenci klasörüne veya sayfanın içine koymayın. Sunucu bu dosyayı dışarı vermez.
 
 ## Opsiyonel: "Google Drive'a Kaydet" düğmesi
@@ -35,13 +35,13 @@ Video kartındaki **⬇ İndir** düğmesinin yanında **"☁ Drive'a Kaydet"** 
 
 ## GitHub Pages ile yayınlama (5 adım)
 
-1. Bu klasördeki **tüm dosyaları** (`index.html`, `app.js`, `assets/`, `dev-server.js`, bu README) Bilfen GitHub hesabında yeni bir repoya yükleyin (örn. `adsup-3d`).
+1. Bu klasördeki **tüm dosyaları** (`index.html`, `app.js`, `i2v.js`, `assets/`, `dev-server.js`, bu README) Bilfen GitHub hesabında yeni bir repoya yükleyin (örn. `adsup-3d`).
    - Hızlı yöntem: GitHub web'de *Add file → Upload files* ile sürükleyip bırakın. `dev-server.js` yalnızca yerel test için kullanılır, yüklemeseniz de olur.
 2. Repo → **Settings → Pages** → *Source*: **Deploy from a branch** → Branch: **main** / **/(root)** → *Save*.
 3. 1–2 dakika sonra `https://<GitHub-kullanıcı-adı>.github.io/adsup-3d/` adresi yayında olur.
 4. Öğrenciler bu adresi tarayıcıda açar — kurulum, hesap veya anahtar gerekmez.
 
-> GitHub Pages üzerinde sayfa açılır. 3D model ücretsiz bulutta üretilir, video tarayıcıda kaydedilir. Gemini renk kutusu yalnızca yerel sunucuda görünür; `.env` dosyasını repoya koymayın.
+> GitHub Pages üzerinde sayfa açılır. Video ücretsiz Hugging Face ekran kartında üretilir. Gemini renk kutusu yalnızca yerel sunucuda görünür; `.env` dosyasını repoya koymayın.
 
 ## Yerel test
 
@@ -53,20 +53,19 @@ powershell -ExecutionPolicy Bypass -File serve.ps1
 
 Tarayıcıda `http://localhost:8080` açın. Dosyayı çift tıklayarak açmayın; tarayıcı modülleri `file://` adresinde çalışmaz.
 
-Bun yüklüyse `bun dev-server.js` aynı adresi açar. Python varsa `python -m http.server 8080` yalnızca 3D'yi açar, Gemini kutusunu açmaz.
+Bun yüklüyse `bun dev-server.js` aynı adresi açar. Python varsa `python -m http.server 8080` videoyu açar, Gemini kutusunu açmaz.
 
 ## Sınırlar & iyi sonuç için ipuçları
 
-- En iyi sonuç: **sade/düz arka planlı**, tek nesne fotoğrafları (oyuncak, ürün, karakter, kendi çizimi…). Kalabalık bir sahne tek bir kapalı modele dönüşmez.
-- Üretim ücretsiz GPU kuyruğuna bağlıdır. Kota doluysa sayfa bunu yazar; kabartma göstermez.
-- Çıktı videosu WebM formatındadır (Chrome/Edge ile MP4 destekli tarayıcılar otomatik MP4 seçebilir). İstenirse Windows'ta "Fotoğraflar" ya da VLC ile MP4'e dönüştürülebilir.
+- En iyi sonuç: tek özne, sade arka plan. Kalabalık sahnede hareket dağınık olabilir.
+- Klip yaklaşık 2 saniyedir ve 512×704 boyutunda üretilir.
+- Üretim ücretsiz GPU kuyruğuna bağlıdır. Kota doluysa sayfa bunu yazar.
+- Çıktı MP4’tir.
 - Sitede banner `assets/banner.jpg` olarak kullanılır — kendi görselinizle değiştirebilirsiniz.
 
 ## Teknoloji
 
+- Saf HTML/CSS/JS (framework yok).
+- Video: `i2v.js` görseli `https://lightricks-ltx-video-distilled.hf.space` adresine yükler, Gradio kuyruğundan MP4 indirir. Model [LTX-Video](https://github.com/Lightricks/LTX-Video).
 - Google Drive (opsiyonel): Google Identity Services token'ı ile Drive API multipart upload — tamamı tarayıcıdan.
-
-- Saf HTML/CSS/JS (framework yok) + [Three.js](https://threejs.org) 0.160 (CDN'den).
-- 3D: görsel Hugging Face üzerindeki Hunyuan3D / Stable Fast 3D alanına gider, dönen dosya GLB olur (`mesh3d.js`). Sahne Three.js.
-- Video: `canvas.captureStream()` + `MediaRecorder`, 5 saniyede tam bir tur.
 - İsteğe bağlı renk: yerel `dev-server.js` üzerinden Gemini görsel API'si. Anahtar yalnızca `.env`.

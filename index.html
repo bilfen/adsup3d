@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bilfen AD'S UP — Görselden renkli 3D videoya</title>
-<meta name="description" content="Görselini yükle, renkli 3D hali kendi etrafında dönsün, videoyu bilgisayarına indir. Ücretsiz, tarayıcıda çalışır.">
+<title>Bilfen AD'S UP — Görselden videoya</title>
+<meta name="description" content="Görselini yükle, ücretsiz bulut onu kısa bir videoya çevirsin, MP4 bilgisayarına insin.">
 <link rel="icon" href="assets/banner.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -75,6 +75,9 @@
   .geminiRow{display:none;align-items:flex-start;gap:10px;margin-top:14px;font-size:14px;line-height:1.45;background:#fdf3e3;border:1px solid #f3e0b8;padding:10px 14px;border-radius:12px}
   .geminiRow input{margin-top:3px}
   .geminiRow small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+  .motion{display:block;margin-top:14px;font-size:14px;font-weight:600}
+  .motion input{display:block;width:100%;margin-top:6px;font:inherit;font-weight:500;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff}
+  .motion small{display:block;color:var(--muted);font-weight:500;font-size:12.5px;margin-top:4px}
   button{font:inherit;border:0;border-radius:999px;padding:12px 24px;cursor:pointer;font-weight:600;transition:.15s}
   .btn-primary{background:linear-gradient(90deg,var(--red),var(--amber),var(--green),var(--blue),var(--magenta));color:#fff;box-shadow:0 6px 18px -6px rgba(18,116,191,.4)}
   .btn-primary:hover{filter:brightness(1.07)}
@@ -88,17 +91,8 @@
   .bar i{display:block;height:100%;width:5%;background:linear-gradient(90deg,var(--blue),var(--magenta));transition:width .4s;border-radius:999px}
   .log{margin-top:12px;font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--muted);max-height:120px;overflow:auto;background:#f8f9fb;border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:none}
 
-  /* 3D bölüm */
-  .recgrid{display:grid;grid-template-columns:250px 1fr;gap:18px}
-  @media(max-width:860px){.recgrid{grid-template-columns:1fr}}
-  .stageWrap{position:relative;width:100%}
-  #c3d{width:100%;height:480px;border-radius:14px;background:radial-gradient(1200px 500px at 50% -10%,#1c2940,#0f172a);display:block;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
-  .stageLogo{position:absolute;top:14px;right:14px;background:rgba(255,255,255,.88);padding:7px 11px;border-radius:10px;pointer-events:none;box-shadow:0 2px 10px rgba(0,0,0,.22);display:flex;align-items:center}
-  .stageLogo img{width:clamp(80px,14vw,110px);height:auto;display:block;opacity:.92}
-  .side{display:flex;flex-direction:column;gap:9px}
-  .side .note{font-size:12px;color:var(--muted);line-height:1.55}
-  .pill{display:inline-block;padding:3px 10px;border-radius:999px;background:#e8f4fd;color:#0b5d95;font-size:11.5px;font-weight:700;letter-spacing:.02em}
-  video{width:100%;border-radius:12px;background:#000;max-height:360px;display:block}
+  /* Video */
+  video{width:100%;border-radius:12px;background:#000;max-height:480px;display:block}
   .vidcard{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff;margin-top:14px}
   .vidcard .meta{font-size:12.5px;color:var(--muted);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center}
   .dl{display:inline-flex;align-items:center;gap:6px;text-decoration:none;color:#0b5d95;font-weight:600;font-size:13.5px;background:#e8f4fd;padding:7px 14px;border-radius:999px}
@@ -108,20 +102,16 @@
   .info{display:grid;grid-template-columns:1fr 1fr;gap:20px}
   @media(max-width:860px){
     .info{grid-template-columns:1fr}
-    .recgrid{grid-template-columns:1fr}
     .steps{grid-template-columns:repeat(2,1fr)}
     .topbar nav a:not(.cta){display:none}
     main{padding:20px 14px 40px}
     .hero{padding:0 14px}
     .heroBody{padding:20px 20px 24px}
-    #c3d{height:360px}
   }
   @media(max-width:480px){
     .steps{grid-template-columns:1fr}
     .drop b{letter-spacing:-.01em}
     button{width:100%}
-    .side{width:100%}
-    .recgrid .side button{min-height:48px}
   }
   .infoItem{display:flex;gap:12px}
   .infoItem .ic{flex:0 0 auto;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px}
@@ -145,7 +135,7 @@
     <div class="brand"><span class="dot"></span> BILFEN · AD'S UP</div>
     <nav>
       <a href="#yukle">Görsel Yükle</a>
-      <a href="#viz">3D İzle</a>
+      <a href="#viz">Videoyu İzle</a>
       <a href="#bilgi">Nasıl Çalışır?</a>
       <a class="cta" href="#yukle">Başla →</a>
     </nav>
@@ -157,13 +147,13 @@
     <img src="assets/banner.jpg" alt="Bilfen AD'S UP">
     <div class="heroBody">
       <div>
-        <h1>Görselden <span class="grad">renkli 3D videoya</span></h1>
-        <p>Çizimini veya fotoğrafını yükle. Görsel gerçek bir 3D modele dönüşür, kendi etrafında bir tur döner, video iner.</p>
+        <h1>Görselden <span class="grad">kısa videoya</span></h1>
+        <p>Çizimini veya fotoğrafını yükle. Görsel ücretsiz bulutta canlanır, kısa video bilgisayarına iner.</p>
         <div class="badges">
-          <span class="badge b-blue">🎨 Renkli 3D</span>
-          <span class="badge b-green">🔄 360° dönüş</span>
-          <span class="badge b-amber">⬇️ Video indir</span>
-          <span class="badge">🆓 Ücretsiz</span>
+          <span class="badge b-blue">🖼️ Görselden video</span>
+          <span class="badge b-green">☁️ Ücretsiz bulut</span>
+          <span class="badge b-amber">⬇️ MP4 indir</span>
+          <span class="badge">🆓 Hesap yok</span>
         </div>
       </div>
     </div>
@@ -172,15 +162,15 @@
 
 <main>
   <div class="steps">
-    <div class="step"><span class="n">Adım 1</span><b>Görsel yükle</b><span>Çizim, logo veya tek nesne fotoğrafı</span></div>
-    <div class="step"><span class="n">Adım 2</span><b>Gerçek 3D model</b><span>Görsel bulutta renkli, her yanı olan bir modele dönüşür</span></div>
-    <div class="step"><span class="n">Adım 3</span><b>360° döner</b><span>Model kendi etrafında tam bir tur atar</span></div>
-    <div class="step"><span class="n">Adım 4</span><b>Video iner</b><span>Tur bitince video bilgisayarına kaydolur</span></div>
+    <div class="step"><span class="n">Adım 1</span><b>Görsel yükle</b><span>Çizim, logo veya fotoğraf</span></div>
+    <div class="step"><span class="n">Adım 2</span><b>Bulutta canlanır</b><span>Açık kaynak LTX modeli görseli kısa videoya çevirir</span></div>
+    <div class="step"><span class="n">Adım 3</span><b>Klibi izle</b><span>Yaklaşık 2 saniyelik MP4 sayfada oynar</span></div>
+    <div class="step"><span class="n">Adım 4</span><b>Video iner</b><span>Dosya bilgisayarına kaydolur</span></div>
   </div>
 
   <section class="card" id="yukle">
     <h2><span class="num">1</span> Görsel yükle</h2>
-    <p class="sub">Düz arka planlı tek nesne en temiz modeli verir. Görsel, 3D model için ücretsiz buluta gider; bu bir-iki dakika sürebilir. Video bu bilgisayarda kaydedilir.</p>
+    <p class="sub">Görsel, ücretsiz bir ekran kartında videoya dönüşmek için Hugging Face’e gider. Bu bir-iki dakika sürebilir. Günlük ücretsiz hak dolunca video gelmez; sahte bir video gösterilmez.</p>
     <div class="drop" id="drop">
       <div class="em">🖼️</div>
       <div><b>Görseli buraya sürükle</b></div>
@@ -191,42 +181,33 @@
     <label id="geminiRow" class="geminiRow">
       <input type="checkbox" id="geminiOn">
       <span>Gemini ile renkleri canlandır
-        <small>İşaretlenirse görsel önce Google Gemini’ye gider ve renkleri canlanır. 3D model için görsel her durumda ücretsiz buluta gider. Video bu bilgisayarda kaydedilir.</small>
+        <small>İşaretlenirse görsel önce Google Gemini’ye gider. Video için görsel her durumda ücretsiz buluta gider.</small>
       </span>
     </label>
-    <button id="btnOlustur" class="btn-primary" disabled>✨ Görseli 3D modele çevir, 360° videoyu indir</button>
+    <label class="motion">Hareket cümlesi (isteğe bağlı)
+      <input id="motion" type="text" maxlength="240" placeholder="Boş bırakırsan görsel hafifçe canlanır">
+      <small>İngilizce yazarsan hareket daha net olur. Örnek: hair moves gently in the wind</small>
+    </label>
+    <button id="btnOlustur" class="btn-primary" disabled>✨ Görseli videoya çevir ve indir</button>
     <div class="status" id="status">Hazır — bir görsel seçin.</div>
     <div class="bar" id="bar" style="display:none"><i id="barFill"></i></div>
     <div class="log" id="log"></div>
   </section>
 
   <section class="card" id="secViz" style="display:none">
-    <h2 id="viz"><span class="num">2</span> Modelini izle ve videoya çevir</h2>
-    <p class="sub">Model hazır olunca kendi etrafında bir tur döner, video kaydı biter ve dosya iner. İndirme başlamazsa alttaki İndir düğmesini kullan. Fareyle de çevirebilirsin.</p>
-    <div class="recgrid">
-      <div class="side">
-        <button id="btnTurn" class="btn-ghost">🔄 Dönmeyi başlat / durdur</button>
-        <button id="btnRec5" class="btn-ghost">🎬 360° dönüş videosu + otomatik indir (5 sn)</button>
-        <button id="btnRecManual" class="btn-ghost">● Kaydı başlat / durdur</button>
-        <span class="note">💡 İpucu: modelin üzerine fareyle basılı tutup sürükle — kendi açını kendin seç.</span>
-        <span class="note">Kaydedilen videolar aşağıda listelenir; <b>⬇ İndir</b> ile bilgisayarına iner.</span>
-      </div>
-      <div class="stageWrap">
-        <canvas id="c3d"></canvas>
-        <div class="stageLogo"><img src="assets/logo.png" alt="Logo"></div>
-      </div>
-    </div>
+    <h2 id="viz"><span class="num">2</span> Videon hazır</h2>
+    <p class="sub">Kısa MP4 aşağıda oynar. İndirme başlamazsa <b>⬇ İndir</b> aynı dosyayı tekrar kaydeder.</p>
     <div id="vidList"></div>
   </section>
 
   <section class="card" id="bilgi">
     <h2><span class="num">3</span> Nasıl çalışır?</h2>
-    <p class="sub">Hesap yok, ücret yok. 3D model ücretsiz bulutta üretilir; 360° video bu bilgisayarda kaydedilir.</p>
+    <p class="sub">Hesap yok, ücret yok. Video, Lightricks’in açık LTX-Video modeliyle ücretsiz bir ekran kartında üretilir.</p>
     <div class="info">
-      <div class="infoItem"><div class="ic">📤</div><div><b>Görsel 3D modele dönüşür</b><p>Düz kart değil. Yüklenen görselden her yanı olan renkli bir model çıkar.</p></div></div>
-      <div class="infoItem"><div class="ic">🧊</div><div><b>Etrafında bir tur</b><p>Model sahneye gelince kendi etrafında tam bir tur döner. Yanı ve arkası da görünür.</p></div></div>
-      <div class="infoItem"><div class="ic">🎬</div><div><b>Tam bir tur</b><p>Kayıt 5 saniye sürer ve model tam 360 derece döner. İstersen fareyle tutup kendi açını da seçebilirsin.</p></div></div>
-      <div class="infoItem"><div class="ic">⬇️</div><div><b>Video indir</b><p>Tur bitince WebM veya MP4 dosyası iner. Chrome veya Edge kullan. Sayfadaki İndir düğmesi aynı dosyayı tekrar kaydeder.</p></div></div>
+      <div class="infoItem"><div class="ic">📤</div><div><b>Görsel buluta gider</b><p>Seçtiğin dosya bu bilgisayardan çıkar ve Hugging Face üzerindeki ücretsiz alana yüklenir.</p></div></div>
+      <div class="infoItem"><div class="ic">🎬</div><div><b>Kısa video üretilir</b><p>Model görseli yaklaşık 2 saniyelik bir klibe çevirir. Kuyruk varsa beklemek gerekir.</p></div></div>
+      <div class="infoItem"><div class="ic">⏳</div><div><b>Günlük hak sınırlı</b><p>Aynı interneti kullanan herkes bu hakkı paylaşır. Hak bitince sayfa bunu yazar, başka bir video uydurmaz.</p></div></div>
+      <div class="infoItem"><div class="ic">⬇️</div><div><b>MP4 iner</b><p>Dosya bilgisayarına kaydolur. Chrome veya Edge kullan. İndir düğmesi aynı dosyayı tekrar kaydeder.</p></div></div>
     </div>
   </section>
 </main>
@@ -234,19 +215,11 @@
 <footer>
   <div class="footerIn">
     <span class="dot"></span>
-    <span>Bilfen AD'S UP · Görselden 3D Videosuna Atölyesi</span>
-    <span class="right">Ücretsiz 3D model · 360° video bu bilgisayarda</span>
+    <span>Bilfen AD'S UP · Görselden Videoya Atölyesi</span>
+    <span class="right">Ücretsiz LTX-Video · MP4 bu bilgisayara iner</span>
   </div>
 </footer>
 
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-  }
-}
-</script>
 <script src="https://accounts.google.com/gsi/client" defer></script>
 <script type="module" src="app.js"></script>
 </body>

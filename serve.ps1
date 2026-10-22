@@ -138,7 +138,7 @@ $listener.Prefixes.Add("http://localhost:8080/")
 $listener.Start()
 $hasKey = [bool][Environment]::GetEnvironmentVariable("GEMINI_API_KEY", "Process")
 Write-Host "AD'S UP yerel sunucu: http://localhost:8080/"
-if ($hasKey) { Write-Host "Gemini renk canlandirma: acik (anahtar .env icinde)" } else { Write-Host "Gemini renk canlandirma: kapali (3D yine calisir)" }
+if ($hasKey) { Write-Host "Gemini renk canlandirma: acik (anahtar .env icinde)" } else { Write-Host "Gemini renk canlandirma: kapali (video yine calisir)" }
 Write-Host "Durdurmak icin bu pencerede Ctrl+C"
 
 try {
@@ -151,7 +151,7 @@ try {
       if ($path -eq "/api/health") {
         $flag = "false"
         if ($hasKey) { $flag = "true" }
-        Send-Text $res ("{""gemini"":" + $flag + ",""engine"":""mesh3d""}") "application/json; charset=utf-8" 200
+        Send-Text $res ("{""gemini"":" + $flag + ",""engine"":""i2v""}") "application/json; charset=utf-8" 200
         continue
       }
       if ($path -eq "/api/enhance" -and $req.HttpMethod -eq "POST") {
