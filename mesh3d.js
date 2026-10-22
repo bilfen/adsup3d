@@ -1,10 +1,9 @@
 // Görsel -> gerçek 3B model. Stability AI Stable Fast 3D, Gradio 4.41.
-// Ölçülen yol (22 Ekim 2026): /upload, sonra /queue/join fn_index 5.
-// /call/run_button hata gövdesini "data: null" diye yutuyor.
-// Veri sırası: [düğme, görsel, durum, ön plan oranı, remesh, köşe sayısı, doku].
+// Aynı oturumda sıra: önce arka plan (fn 4), gerekirse "Remove Background",
+// sonra düğme "Run" (fn 5). Düğme null giderse servis hatayı gizleyip boş döner.
+// /call/run_button hata gövdesini "data: null" diye yuttuğu için kullanılmaz.
 
 const BASE = "https://stabilityai-stable-fast-3d.hf.space";
-const FN = 5;
 const TIMEOUT_MS = 180000;
 
 function sessionHash() {
@@ -130,6 +129,29 @@ async function downloadGlb(path, signal) {
   return blob;
 }
 
+function buttonLabel(output) {
+  const slot = output && Array.isArray(output.data) ? output.data[0] : null;
+  if (!slot) return "";
+  if (typeof slot === "string") return slot;
+  return typeof slot.value === "string" ? slot.value : "";
+}
+
+async function enqueue(session, data, fnIndex, triggerId, onStatus, signal) {
+  const join = await fetch(BASE + "/queue/join", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      data,
+      fn_index: fnIndex,
+      session_hash: session,
+      trigger_id: triggerId
+    }),
+    signal
+  });
+  if (!join.ok) throw new Error("Kuyruğa girilemedi (HTTP " + join.status + ").");
+  return readQueue(session, onStatus, signal);
+}
+
 /** @returns {Promise<{blob: Blob, ms: number}>} */
 export async function imageToModel(opts) {
   const onStatus = opts.onStatus || (() => {});
@@ -148,21 +170,15 @@ export async function imageToModel(opts) {
       mime_type: file.type || "image/jpeg",
       meta: { _type: "gradio.FileData" }
     };
-    const body = {
-      data: [null, fileData, null, 0.85, "None", -1, 1024],
-      fn_index: FN,
-      session_hash: session,
-      trigger_id: 13
-    };
-    onStatus("Model kuyruğuna giriliyor…", 22);
-    const join = await fetch(BASE + "/queue/join", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: ctrl.signal
-    });
-    if (!join.ok) throw new Error("Kuyruğa girilemedi (HTTP " + join.status + ").");
-    const output = await readQueue(session, onStatus, ctrl.signal);
+    const knobs = [0.85, "None", -1, 1024];
+    onStatus("Arka plan kontrol ediliyor…", 24);
+    const prep = await enqueue(session, [fileData, 0.85], 4, 7, onStatus, ctrl.signal);
+    if (buttonLabel(prep) !== "Run") {
+      onStatus("Arka plan ayrılıyor…", 36);
+      await enqueue(session, ["Remove Background", fileData, null].concat(knobs), 5, 13, onStatus, ctrl.signal);
+    }
+    onStatus("Görsel 3B modele çevriliyor…", 48);
+    const output = await enqueue(session, ["Run", fileData, null].concat(knobs), 5, 13, onStatus, ctrl.signal);
     const glbPath = findGlb(output);
     if (!glbPath) throw new Error("Servis model dosyası döndürmedi.");
     onStatus("3B model iniyor…", 88);
