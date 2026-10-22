@@ -16,19 +16,15 @@ function sessionHash() {
   return s;
 }
 
-function authHeaders(token) {
-  return token ? { Authorization: "Bearer " + token } : {};
-}
-
 export function errorText(raw) {
   const s = String(raw || "");
   const wait = s.match(/Try again in (\d+:\d+:\d+)/i);
   if (/quota|ZeroGPU|runs limit|exceeded your/i.test(s)) {
     const when = wait && wait[1] !== "0:00:00" ? " Yeniden deneme: " + wait[1] + "." : "";
-    return "Ücretsiz 3B modeli hakkı bu istek için yetmedi." + when + " Ayarlar'dan Hugging Face anahtarın varsa hak kendi hesabına yazılır.";
+    return "Ücretsiz 3B modeli hakkı bu istek için yetmedi." + when;
   }
-  if (/401|403|unauthorized|invalid token/i.test(s)) {
-    return "Hugging Face anahtarı geçersiz. Ayarlar'dan yeni bir anahtar gir.";
+  if (/401|403|unauthorized|invalid token|authenticate/i.test(s)) {
+    return "Ücretsiz model sırası bu isteği şu an kabul etmedi. Bir süre sonra yeniden dene.";
   }
   if (/busy|queue is full|503|No GPU/i.test(s)) {
     return "3B modeli servisi şu an meşgul. Bir-iki dakika sonra yeniden dene.";
@@ -52,10 +48,10 @@ async function shrink(file) {
   return new File([blob], "gorsel.jpg", { type: "image/jpeg" });
 }
 
-async function upload(file, token) {
+async function upload(file) {
   const fd = new FormData();
   fd.append("files", file, file.name || "gorsel.jpg");
-  const r = await fetch(BASE + "/upload", { method: "POST", body: fd, headers: authHeaders(token) });
+  const r = await fetch(BASE + "/upload", { method: "POST", body: fd });
   if (!r.ok) throw new Error("Görsel yüklenemedi (HTTP " + r.status + ").");
   const j = await r.json();
   const item = Array.isArray(j) ? j[0] : j;
@@ -83,9 +79,9 @@ function findGlb(node) {
   return found;
 }
 
-async function readQueue(session, token, onStatus, signal) {
+async function readQueue(session, onStatus, signal) {
   const r = await fetch(BASE + "/queue/data?session_hash=" + encodeURIComponent(session), {
-    headers: Object.assign({ Accept: "text/event-stream" }, authHeaders(token)),
+    headers: { Accept: "text/event-stream" },
     signal
   });
   if (!r.ok || !r.body) throw new Error("Kuyruk akışı açılmadı (HTTP " + r.status + ").");
@@ -122,9 +118,9 @@ async function readQueue(session, token, onStatus, signal) {
   throw new Error("3B modeli servisi yanıtı yarıda kesti.");
 }
 
-async function downloadGlb(path, token, signal) {
+async function downloadGlb(path, signal) {
   const url = /^https?:/i.test(path) ? path : BASE + "/file=" + path;
-  const r = await fetch(url, { headers: authHeaders(token), signal });
+  const r = await fetch(url, { signal });
   if (!r.ok) throw new Error("Model indirilemedi (HTTP " + r.status + ").");
   const blob = await r.blob();
   if (blob.size < 1000) throw new Error("Gelen dosya 3B model değil.");
@@ -136,7 +132,6 @@ async function downloadGlb(path, token, signal) {
 
 /** @returns {Promise<{blob: Blob, ms: number}>} */
 export async function imageToModel(opts) {
-  const token = (opts.token || "").trim();
   const onStatus = opts.onStatus || (() => {});
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
@@ -145,7 +140,7 @@ export async function imageToModel(opts) {
     onStatus("Görsel hazırlanıyor…", 8);
     const file = await shrink(opts.file);
     onStatus("Görsel 3B modeli servisine gidiyor…", 16);
-    const path = await upload(file, token);
+    const path = await upload(file);
     const session = sessionHash();
     const fileData = {
       path,
@@ -162,16 +157,16 @@ export async function imageToModel(opts) {
     onStatus("Model kuyruğuna giriliyor…", 22);
     const join = await fetch(BASE + "/queue/join", {
       method: "POST",
-      headers: Object.assign({ "Content-Type": "application/json" }, authHeaders(token)),
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
       signal: ctrl.signal
     });
     if (!join.ok) throw new Error("Kuyruğa girilemedi (HTTP " + join.status + ").");
-    const output = await readQueue(session, token, onStatus, ctrl.signal);
+    const output = await readQueue(session, onStatus, ctrl.signal);
     const glbPath = findGlb(output);
     if (!glbPath) throw new Error("Servis model dosyası döndürmedi.");
     onStatus("3B model iniyor…", 88);
-    const blob = await downloadGlb(glbPath, token, ctrl.signal);
+    const blob = await downloadGlb(glbPath, ctrl.signal);
     return { blob, ms: Math.round((performance.now() - t0) / 1000) };
   } catch (err) {
     if (err && err.name === "AbortError") throw new Error("3B modeli zaman aşımına uğradı. Yeniden dene.");

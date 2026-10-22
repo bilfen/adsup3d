@@ -2,23 +2,13 @@
 
 **Yayında:** https://bilfen.github.io/adsup3d/ — repoya her push'ta GitHub Pages kendiliğinden güncellenir.
 
-Bir fotoğraf veya çizim yükle. Stable Fast 3D onu dokulu bir 3B modele çevirir. Model bu sayfada 360° döner ve video cihaza iner.
+Bir fotoğraf veya çizim yükle. Stable Fast 3D onu dokulu bir 3B modele çevirir. Model bu sayfada 360° döner ve video cihaza iner. Hesap veya anahtar istenmez.
 
 ## Akış
 
 1. Görsel, Hugging Face üzerindeki [Stable Fast 3D](https://huggingface.co/spaces/stabilityai/stable-fast-3d) alanına gider. Çıktı gerçek bir GLB modelidir.
 2. Model tarayıcıda (Three.js) bir tur döner. Bu adım ikinci bir ekran kartı hakkı harcamaz.
 3. Kayıt bu tarayıcıda yapılır. Chrome MP4 indirir; kayıt biçimi desteklemiyorsa dosya WebM olur ve adı da ona göre verilir.
-
-## Önce: ücretsiz Hugging Face anahtarı (tek seferlik)
-
-Okul ağındaki bilgisayarlar aynı internet çıkışını paylaşır. Anahtarsız hak bu çıkışta çabuk biter. Her öğrenci kendi ücretsiz hesabını kullanır:
-
-1. [huggingface.co/join](https://huggingface.co/join) adresinde ücretsiz hesap aç.
-2. [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) → **New token** → tip **Read**.
-3. Sayfadaki **⚙ Ayarlar** düğmesine bas, anahtarı (`hf_...`) yapıştır, **Kaydet**.
-
-Anahtar yalnızca o tarayıcının `localStorage` alanında durur (`adsup.hfToken`). Repoya, sunucuya veya başka birine gitmez.
 
 ## Kullanım
 

@@ -131,17 +131,6 @@
   footer .spacer{flex:1}
 
   /* ayarlar */
-  dialog{border:0;border-radius:18px;padding:0;max-width:520px;width:calc(100% - 32px);box-shadow:0 30px 70px -30px rgba(9,16,24,.5)}
-  dialog::backdrop{background:rgba(9,16,24,.45)}
-  .dlgHead{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--line)}
-  .dlgHead b{font-size:15px}
-  .dlgBody{padding:18px 20px 20px}
-  .dlgBody p{margin:0 0 12px;font-size:13px;color:var(--muted);line-height:1.55}
-  .tokenState{display:block;margin-top:10px;font-size:12.5px;font-weight:600;padding:8px 11px;border-radius:10px}
-  .tokenState.ok{background:#e9f7ee;color:#1d7a41}
-  .tokenState.warn{background:#fdf3e3;color:#8f6209}
-  .dlgFoot{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
-  .dlgFoot .btn{flex:1}
   [hidden]{display:none !important}
   @media(prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
 </style>
@@ -151,8 +140,6 @@
 <div class="topbar">
   <div class="inner">
     <div class="brand"><span class="dot"></span> BILFEN · AD'S UP</div>
-    <div class="spacer"></div>
-    <button class="ghost" id="btnAyar">⚙ Ayarlar</button>
   </div>
 </div>
 
@@ -165,7 +152,7 @@
       <div class="badges">
         <span class="badge b-blue">🖼️ → 🧊 → 🎬</span>
         <span class="badge b-green">🔓 Stable Fast 3D</span>
-        <span class="badge b-amber">🆓 Ücretsiz GPU (HF hesabı)</span>
+        <span class="badge b-amber">🆓 Anahtarsız</span>
       </div>
     </div>
   </div>
@@ -244,7 +231,7 @@
   <div class="info">
     <div class="infoItem"><div class="ic">🧊</div><div><b>Gerçek model</b><p>Stable Fast 3D fotoğrafı dokulu bir GLB modele çevirir. Yastık kabartması kullanılmaz.</p></div></div>
     <div class="infoItem"><div class="ic">🔄</div><div><b>Dönüş bu cihazda</b><p>Model inince sayfa onu 360° döndürüp videoyu kaydeder. Bu adım ek ekran kartı harcamaz.</p></div></div>
-    <div class="infoItem"><div class="ic">🔑</div><div><b>Anahtar sende kalır</b><p>Hugging Face anahtarı yalnızca bu tarayıcıda saklanır; sunucuya, repoya veya başka birine gitmez.</p></div></div>
+    <div class="infoItem"><div class="ic">🆓</div><div><b>Hesap yok</b><p>Anahtar veya üyelik istenmez. Görseli seç, modele çevir, videoyu indir.</p></div></div>
   </div>
 
   <footer>
@@ -253,25 +240,6 @@
     <span>Stable Fast 3D · dönüş bu tarayıcıda</span>
   </footer>
 </div>
-
-<!-- Ayarlar -->
-<dialog id="dlgAyar">
-  <div class="dlgHead"><b>Hugging Face anahtarı</b><span class="spacer"></span><button class="ghost" id="btnAyarKapat">Kapat</button></div>
-  <div class="dlgBody">
-    <p>
-      3B modeli ücretsiz ekran kartında üretilir ve giriş ister. Ücretsiz bir Hugging Face hesabı açıp
-      <b>Settings → Access Tokens → New token</b> (Read yeterli) ile anahtar oluştur, aşağıya yapıştır.
-      Günlük hak kendi hesabına yazılır. Dönüş videosu bu tarayıcıda kaydedilir.
-    </p>
-    <input type="password" id="tokenInput" placeholder="hf_..." autocomplete="off" spellcheck="false">
-    <span class="tokenState" id="tokenState"></span>
-    <div class="dlgFoot">
-      <button class="btn solid" id="btnTokenKaydet">Kaydet</button>
-      <button class="btn line" id="btnTokenSil">Sil</button>
-    </div>
-    <p id="tokenMsg" style="margin:10px 0 0;min-height:18px"></p>
-  </div>
-</dialog>
 
 <script type="importmap">
 {

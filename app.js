@@ -1,19 +1,16 @@
 // AD'S UP — görselden 3B modele, sonra 360° video.
-// Model bulutta (Stable Fast 3D). Dönüş ve kayıt bu tarayıcıda.
-// Anahtar yalnızca bu tarayıcının localStorage'ında tutulur.
+// Model bulutta (Stable Fast 3D), anahtarsız. Dönüş ve kayıt bu tarayıcıda.
 
 import { imageToModel } from "./mesh3d.js";
 import { spinToVideo } from "./spin.js";
 
 const $ = (id) => document.getElementById(id);
-const TOKEN_KEY = "adsup.hfToken";
 const DRIVE = { clientId: "", folderId: "", scope: "https://www.googleapis.com/auth/drive.file" };
 
 const state = {
   file: null,
   duration: 6,
   busy: false,
-  token: localStorage.getItem(TOKEN_KEY) || "",
   driveToken: null,
   ext: "mp4"
 };
@@ -43,34 +40,6 @@ function log(msg) {
 
 function clearLog() {
   if (logEl) { logEl.textContent = ""; logEl.hidden = true; }
-}
-
-/* ---------------- anahtar (token) ---------------- */
-
-function tokenLabel() {
-  const el = $("tokenState");
-  if (!el) return;
-  if (state.token) {
-    el.textContent = "Anahtar kayıtlı (" + state.token.slice(0, 3) + "…" + state.token.slice(-4) + ") · günde 5 dk ücretsiz GPU";
-    el.className = "tokenState ok";
-  } else {
-    el.textContent = "Anahtar yok · üretim başlatılamaz";
-    el.className = "tokenState warn";
-  }
-}
-
-function openSettings() {
-  const dlg = $("dlgAyar");
-  if (typeof dlg.showModal === "function") dlg.showModal();
-  else dlg.setAttribute("open", "");
-  $("tokenInput").value = "";
-  tokenLabel();
-}
-
-function closeSettings() {
-  const dlg = $("dlgAyar");
-  if (typeof dlg.close === "function") dlg.close();
-  else dlg.removeAttribute("open");
 }
 
 /* ---------------- dosya seçimi ---------------- */
@@ -270,11 +239,6 @@ function showResult(url, meta) {
 async function run() {
   if (state.busy) return;
   if (!state.file) { setStatus("Önce bir görsel seç."); return; }
-  if (!state.token) {
-    setStatus("Üretim için Hugging Face anahtarı gerekiyor.");
-    openSettings();
-    return;
-  }
   state.busy = true;
   btnOlustur.disabled = true;
   btnOlustur.classList.add("busy");
@@ -287,7 +251,7 @@ async function run() {
       try { work = await enhanceWithGemini(state.file); log("Gemini renkli görsel hazır"); }
       catch (e) { log("Gemini atlandı: " + e.message); }
     }
-    const model = await imageToModel({ file: work, token: state.token, onStatus: setStatus });
+    const model = await imageToModel({ file: work, onStatus: setStatus });
     log("3B model indi: " + Math.round(model.blob.size / 1024) + " KB");
     const canvas = $("stageCanvas");
     const empty = $("emptyStage");
@@ -328,27 +292,6 @@ function saveLocal(blob, ext) {
 /* ---------------- olaylar ---------------- */
 
 btnOlustur.addEventListener("click", run);
-$("btnAyar").addEventListener("click", openSettings);
-$("btnAyarKapat").addEventListener("click", closeSettings);
-$("dlgAyar").addEventListener("click", (e) => { if (e.target.id === "dlgAyar") closeSettings(); });
-$("btnTokenKaydet").addEventListener("click", () => {
-  const v = ($("tokenInput").value || "").trim();
-  if (!/^hf_[A-Za-z0-9]{20,}$/.test(v)) {
-    $("tokenMsg").textContent = "Anahtar hf_ ile başlamalı. Hugging Face → Settings → Access Tokens.";
-    return;
-  }
-  state.token = v;
-  localStorage.setItem(TOKEN_KEY, v);
-  $("tokenMsg").textContent = "Anahtar kaydedildi. Bu tarayıcıda kalır, başka yere gitmez.";
-  $("tokenInput").value = "";
-  tokenLabel();
-});
-$("btnTokenSil").addEventListener("click", () => {
-  state.token = "";
-  localStorage.removeItem(TOKEN_KEY);
-  $("tokenMsg").textContent = "Anahtar silindi.";
-  tokenLabel();
-});
 $("btnAgain").addEventListener("click", run);
 $("dlBtn").addEventListener("click", () => {
   const url = videoEl.src;
@@ -366,9 +309,8 @@ $("btnDrive").addEventListener("click", (e) => {
 
 /* ---------------- başlangıç ---------------- */
 
+try { localStorage.removeItem("adsup.hfToken"); } catch (ignore) {}
 renderDuration();
-tokenLabel();
 probeGemini();
-if (!state.token) setTimeout(() => { setStatus("Başlamak için Ayarlar'dan ücretsiz Hugging Face anahtarını ekle."); }, 600);
 
-window.__adsup = { state, setFile, run, openSettings };
+window.__adsup = { state, setFile, run };
