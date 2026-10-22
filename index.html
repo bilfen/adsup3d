@@ -3,129 +3,147 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bilfen AD'S UP — Görselden videoya</title>
-<meta name="description" content="Görselini yükle, ücretsiz bulut onu kısa bir videoya çevirsin, MP4 bilgisayarına insin.">
+<title>Bilfen AD'S UP — Görselden 3B videoya</title>
+<meta name="description" content="Bir görseli yükle; Stable Fast 3D onu modele çevirsin, tarayıcı 360 derece döndürüp videoyu indirsin.">
 <link rel="icon" href="assets/banner.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
     --red:#e63946; --amber:#f4a417; --green:#2a9d53; --blue:#1274bf; --magenta:#b30f76;
-    --ink:#17202a; --muted:#5f6b7a; --line:#e6e9ee; --card:#ffffff; --bg:#f4f5f7;
-    --shadow:0 1px 2px rgba(23,32,42,.05), 0 8px 24px -12px rgba(23,32,42,.12);
-    --radius:16px;
+    --ink:#121a24; --muted:#5f6b7a; --line:#e3e7ee; --card:#fff; --bg:#f2f4f7;
+    --shadow:0 1px 2px rgba(18,26,36,.05), 0 10px 30px -16px rgba(18,26,36,.18);
+    --radius:18px;
   }
   *{box-sizing:border-box}
-  html{scroll-behavior:smooth}
   body{margin:0;font-family:"Inter","Segoe UI",system-ui,sans-serif;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased}
+  button,input,textarea,select{font:inherit;color:inherit}
+  a{color:var(--blue)}
 
-  /* Üst çubuk */
-  .topbar{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50}
-  .topbar .inner{max-width:1120px;margin:0 auto;padding:10px 24px;display:flex;align-items:center;gap:12px}
-  .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.02em}
-  .brand .dot{width:10px;height:10px;border-radius:999px;background:linear-gradient(135deg,var(--red),var(--amber),var(--green),var(--blue),var(--magenta))}
-  .topbar nav{margin-left:auto;display:flex;gap:18px;font-size:14px}
-  .topbar nav a{color:var(--muted);text-decoration:none;font-weight:500}
-  .topbar nav a:hover{color:var(--ink)}
-  .topbar .cta{background:var(--ink);color:#fff;padding:8px 16px;border-radius:999px;font-size:13px;font-weight:600;text-decoration:none}
-  .topbar .cta:hover{opacity:.9}
+  /* üst çubuk */
+  .topbar{position:sticky;top:0;z-index:40;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .topbar .inner{max-width:1180px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;gap:12px}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:.02em;font-size:14.5px}
+  .brand .dot{width:10px;height:10px;border-radius:99px;background:linear-gradient(135deg,var(--red),var(--amber),var(--green),var(--blue),var(--magenta))}
+  .spacer{flex:1}
+  .ghost{border:1px solid var(--line);background:#fff;border-radius:99px;padding:8px 15px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  .ghost:hover{background:#f7f9fb;border-color:#d4dae3}
 
-  /* Hero: banner ana görsel */
-  .hero{max-width:1120px;margin:24px auto 0;padding:0 24px}
-  .heroCard{background:#fff;border:1px solid var(--line);border-radius:24px;overflow:hidden;box-shadow:var(--shadow)}
-  .heroCard img{width:100%;display:block;aspect-ratio:3406/1252;object-fit:cover}
-  .heroBody{padding:28px 32px 30px;display:flex;gap:28px;align-items:flex-end;flex-wrap:wrap}
-  .heroBody h1{margin:0;font-size:clamp(22px,3.2vw,34px);font-weight:800;letter-spacing:-.02em;line-height:1.15}
-  .heroBody h1 .grad{background:linear-gradient(90deg,var(--red),var(--amber),var(--green),var(--blue),var(--magenta));-webkit-background-clip:text;background-clip:text;color:transparent}
-  .heroBody p{margin:10px 0 0;color:var(--muted);font-size:15.5px;max-width:640px;line-height:1.6}
-  .badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
-  .badge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:#f1f5f9;color:#334155;font-size:12.5px;font-weight:600}
+  .wrap{max-width:1180px;margin:0 auto;padding:18px 20px 48px}
+
+  /* hero */
+  .hero{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin:6px 0 18px}
+  .hero h1{margin:0;font-size:clamp(21px,3vw,30px);letter-spacing:-.02em;line-height:1.12}
+  .hero h1 .grad{background:linear-gradient(90deg,var(--red),var(--amber),var(--green),var(--blue),var(--magenta));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{margin:7px 0 0;color:var(--muted);font-size:14.5px;line-height:1.55;max-width:620px}
+  .badges{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+  .badge{padding:5px 11px;border-radius:99px;font-size:12px;font-weight:600;background:#eef2f7;color:#334155}
   .badge.b-blue{background:#e8f4fd;color:#0b5d95}
   .badge.b-green{background:#e9f7ee;color:#1d7a41}
-  .badge.b-amber{background:#fdf3e3;color:#9a6a0a}
+  .badge.b-amber{background:#fdf3e3;color:#8f6209}
 
-  main{max-width:1120px;margin:0 auto;padding:26px 24px 40px}
+  /* ana yerleşim */
+  .grid{display:grid;grid-template-columns:400px minmax(0,1fr);gap:18px;align-items:start}
+  @media(max-width:960px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}
+  .card + .card{margin-top:16px}
+  .card h2{margin:0 0 12px;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
 
-  /* Adım şeridi */
-  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 0 22px}
-  @media(max-width:860px){.steps{grid-template-columns:repeat(2,1fr)}}
-  @media(max-width:520px){.steps{grid-template-columns:1fr}}
-  .step{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);position:relative;overflow:hidden}
-  .step::before{content:"";position:absolute;inset:0 auto 0 0;width:4px}
-  .step:nth-child(1)::before{background:var(--red)} .step:nth-child(2)::before{background:var(--amber)}
-  .step:nth-child(3)::before{background:var(--green)} .step:nth-child(4)::before{background:var(--blue)}
-  .step .n{font-size:11px;font-weight:800;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
-  .step b{display:block;margin:4px 0 2px;font-size:15px}
-  .step span{color:var(--muted);font-size:13px;line-height:1.5;display:block}
+  /* yükleme */
+  .drop{position:relative;border:2px dashed #b9c5d4;border-radius:16px;background:linear-gradient(180deg,#f8fafc,#f1f5f9);min-height:210px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;cursor:pointer;transition:.16s;padding:18px;overflow:hidden}
+  .drop:hover,.drop.over{border-color:var(--blue);background:linear-gradient(180deg,#f0f7fe,#e8f2fd)}
+  .drop:focus-visible{outline:3px solid rgba(18,116,191,.35);outline-offset:2px}
+  .drop .em{font-size:42px;line-height:1;margin-bottom:10px}
+  .drop b{font-size:16px}
+  .drop span{display:block;margin-top:7px;color:var(--muted);font-size:13px}
+  .drop img{max-width:100%;max-height:260px;border-radius:12px;display:none}
+  .drop.has-file{border-style:solid;border-color:#cfd8e3;background:#fff;padding:8px}
+  .drop.has-file .em,.drop.has-file b,.drop.has-file span{display:none}
+  .drop.has-file img{display:block}
 
-  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin-bottom:20px;box-shadow:var(--shadow)}
-  .card>h2{margin:0 0 6px;font-size:18px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
-  .card>.sub{margin:0 0 16px;color:var(--muted);font-size:13.5px}
-  .num{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:var(--ink);color:#fff;font-size:13px;font-weight:700}
+  label.field{display:block;margin-top:16px}
+  label.field > b{display:block;font-size:13px;margin-bottom:6px;font-weight:600}
+  label.field small{display:block;color:var(--muted);font-size:12px;margin-top:5px;line-height:1.45}
+  input[type=text],input[type=number],input[type=password],textarea,select{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fff;font-size:14px}
+  textarea{min-height:74px;resize:vertical;line-height:1.45}
+  input:focus,textarea:focus,select:focus{outline:2px solid rgba(18,116,191,.28);border-color:#a9c8e4}
 
-  /* Yükleme alanı */
-  .drop{position:relative;border:2.5px dashed #b9c5d4;border-radius:20px;padding:56px 32px;text-align:center;cursor:pointer;transition:.18s;background:linear-gradient(180deg,#f8fafc,#f1f5f9);min-height:230px;display:flex;flex-direction:column;justify-content:center;align-items:center}
-  .drop:hover,.drop.over{border-color:var(--blue);background:linear-gradient(180deg,#f0f7fe,#e8f2fd);box-shadow:inset 0 0 0 4px rgba(18,116,191,.08)}
-  .drop .em{font-size:56px;margin-bottom:14px;filter:drop-shadow(0 6px 12px rgba(18,116,191,.18))}
-  .drop b{font-size:24px;font-weight:700;letter-spacing:-.02em}
-  .drop .hint{color:#334155;font-size:15.5px;font-weight:500;background:#e8f4fd;padding:10px 22px;border-radius:999px;margin-top:14px}
-  .drop::after{content:"";position:absolute;inset:-2.5px;border-radius:20px;pointer-events:none}
-  @media(max-width:640px){.drop{padding:40px 20px;min-height:190px}.drop b{font-size:20px}.drop .em{font-size:44px}.drop .hint{font-size:14px;padding:8px 16px}}
-  .preview{max-width:300px;max-height:220px;border-radius:12px;display:none;margin:16px auto 4px;box-shadow:var(--shadow)}
-  .geminiRow{display:none;align-items:flex-start;gap:10px;margin-top:14px;font-size:14px;line-height:1.45;background:#fdf3e3;border:1px solid #f3e0b8;padding:10px 14px;border-radius:12px}
-  .geminiRow input{margin-top:3px}
-  .geminiRow small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
-  .motion{display:block;margin-top:14px;font-size:14px;font-weight:600}
-  .motion input{display:block;width:100%;margin-top:6px;font:inherit;font-weight:500;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff}
-  .motion small{display:block;color:var(--muted);font-weight:500;font-size:12.5px;margin-top:4px}
-  button{font:inherit;border:0;border-radius:999px;padding:12px 24px;cursor:pointer;font-weight:600;transition:.15s}
-  .btn-primary{background:linear-gradient(90deg,var(--red),var(--amber),var(--green),var(--blue),var(--magenta));color:#fff;box-shadow:0 6px 18px -6px rgba(18,116,191,.4)}
-  .btn-primary:hover{filter:brightness(1.07)}
-  .btn-primary:disabled,.btn-ghost:disabled{opacity:.45;cursor:not-allowed}
-  .btn-ghost{background:#fff;border:1px solid var(--line);color:var(--ink)}
-  .btn-ghost:hover{background:#f6f8fa;border-color:#d6dce4}
-  #btnOlustur{margin-top:16px;width:100%;font-size:16px}
+  /* segment düğmeleri */
+  .seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;background:#f1f4f8;padding:5px;border-radius:12px}
+  .seg button{border:0;background:transparent;border-radius:9px;padding:9px 6px;font-size:13px;font-weight:600;color:#48566b;cursor:pointer;transition:.14s}
+  .seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(18,26,36,.14)}
+  .seg button:hover:not(.on){color:var(--ink)}
 
-  .status{margin-top:14px;font-size:14px;display:flex;align-items:center;gap:8px}
-  .bar{height:8px;background:#e9edf2;border-radius:999px;overflow:hidden;margin-top:10px}
-  .bar i{display:block;height:100%;width:5%;background:linear-gradient(90deg,var(--blue),var(--magenta));transition:width .4s;border-radius:999px}
-  .log{margin-top:12px;font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--muted);max-height:120px;overflow:auto;background:#f8f9fb;border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:none}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .sliderRow{display:flex;align-items:center;gap:12px}
+  input[type=range]{flex:1;accent-color:var(--blue)}
+  .sliderRow output{font-variant-numeric:tabular-nums;font-weight:700;font-size:13px;min-width:56px;text-align:right}
 
-  /* Video */
-  video{width:100%;border-radius:12px;background:#000;max-height:480px;display:block}
-  .vidcard{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff;margin-top:14px}
-  .vidcard .meta{font-size:12.5px;color:var(--muted);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center}
-  .dl{display:inline-flex;align-items:center;gap:6px;text-decoration:none;color:#0b5d95;font-weight:600;font-size:13.5px;background:#e8f4fd;padding:7px 14px;border-radius:999px}
-  .dl:hover{background:#d8ecfa}
+  .adv{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+  .adv summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--muted);list-style:none}
+  .adv summary::-webkit-details-marker{display:none}
+  .adv summary::before{content:"▸";display:inline-block;margin-right:7px;transition:.15s}
+  .adv[open] summary::before{transform:rotate(90deg)}
 
-  /* Bilgi bölümü */
-  .info{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-  @media(max-width:860px){
-    .info{grid-template-columns:1fr}
-    .steps{grid-template-columns:repeat(2,1fr)}
-    .topbar nav a:not(.cta){display:none}
-    main{padding:20px 14px 40px}
-    .hero{padding:0 14px}
-    .heroBody{padding:20px 20px 24px}
-  }
-  @media(max-width:480px){
-    .steps{grid-template-columns:1fr}
-    .drop b{letter-spacing:-.01em}
-    button{width:100%}
-  }
-  .infoItem{display:flex;gap:12px}
-  .infoItem .ic{flex:0 0 auto;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px}
-  .infoItem:nth-child(1) .ic{background:#e9f7ee}
-  .infoItem:nth-child(2) .ic{background:#e8f4fd}
-  .infoItem:nth-child(3) .ic{background:#fdf3e3}
-  .infoItem:nth-child(4) .ic{background:#fdeef3}
-  .infoItem b{display:block;font-size:14.5px;margin-bottom:3px}
-  .infoItem p{margin:0;font-size:13px;color:var(--muted);line-height:1.55}
+  .cta{width:100%;margin-top:18px;border:0;border-radius:14px;padding:15px;font-size:15.5px;font-weight:700;color:#fff;cursor:pointer;background:linear-gradient(90deg,var(--red),var(--amber),var(--green),var(--blue),var(--magenta));box-shadow:0 10px 22px -12px rgba(18,116,191,.65);transition:.15s}
+  .cta:hover:not(:disabled){filter:brightness(1.06)}
+  .cta:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+  .cta.busy{background:#93a2b5}
 
-  footer{border-top:1px solid var(--line);background:#fff}
-  .footerIn{max-width:1120px;margin:0 auto;padding:22px 24px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
-  .footerIn .dot{width:9px;height:9px;border-radius:999px;background:linear-gradient(135deg,var(--red),var(--amber),var(--green),var(--blue),var(--magenta))}
-  .footerIn .right{margin-left:auto}
+  .status{margin-top:13px;font-size:13.5px;line-height:1.5;color:#334155;min-height:20px}
+  .bar{height:7px;background:#e9edf2;border-radius:99px;overflow:hidden;margin-top:9px;display:none}
+  .bar.on{display:block}
+  .bar i{display:block;height:100%;width:4%;border-radius:99px;background:linear-gradient(90deg,var(--blue),var(--magenta));transition:width .35s}
+  .log{margin-top:10px;font-family:ui-monospace,Consolas,monospace;font-size:11.5px;color:var(--muted);max-height:110px;overflow:auto;background:#f8f9fb;border:1px solid var(--line);border-radius:10px;padding:9px 11px;white-space:pre-wrap}
+  .estimate{display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;font-size:12px;color:var(--muted)}
+
+  /* sahne */
+  .stage{position:relative;border-radius:14px;overflow:hidden;background:#0d141d;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center}
+  .stage video,.stage canvas{width:100%;height:100%;object-fit:contain;background:#0d141d;display:block}
+  .empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#9fb0c3;text-align:center;padding:24px}
+  .empty .em{font-size:40px;opacity:.8}
+  .empty b{color:#dbe4ee;font-size:15px;font-weight:600}
+  .empty span{font-size:13px;max-width:330px;line-height:1.5}
+  .resultHead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .resultHead .meta{font-size:12.5px;color:var(--muted)}
+  .resultHead .right{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+  .btn{border:0;border-radius:99px;padding:10px 17px;font-size:13.5px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:7px}
+  .btn.solid{background:var(--ink);color:#fff}
+  .btn.solid:hover{opacity:.9}
+  .btn.line{background:#eef3f9;color:#123a5c}
+  .btn.line:hover{background:#e3ecf6}
+
+  .history{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-top:14px}
+  .hItem{margin:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;cursor:pointer}
+  .hItem video{width:100%;aspect-ratio:1;object-fit:cover;display:block;background:#0d141d}
+  .hItem figcaption{font-size:10.5px;color:var(--muted);padding:6px 7px;line-height:1.3}
+
+  /* bilgi */
+  .info{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}
+  @media(max-width:860px){.info{grid-template-columns:1fr}}
+  .infoItem{display:flex;gap:11px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px}
+  .infoItem .ic{flex:0 0 auto;width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;background:#eef2f7}
+  .infoItem b{display:block;font-size:13.5px;margin-bottom:3px}
+  .infoItem p{margin:0;font-size:12.5px;color:var(--muted);line-height:1.5}
+
+  footer{margin-top:26px;border-top:1px solid var(--line);padding-top:16px;font-size:12.5px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  footer .spacer{flex:1}
+
+  /* ayarlar */
+  dialog{border:0;border-radius:18px;padding:0;max-width:520px;width:calc(100% - 32px);box-shadow:0 30px 70px -30px rgba(9,16,24,.5)}
+  dialog::backdrop{background:rgba(9,16,24,.45)}
+  .dlgHead{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--line)}
+  .dlgHead b{font-size:15px}
+  .dlgBody{padding:18px 20px 20px}
+  .dlgBody p{margin:0 0 12px;font-size:13px;color:var(--muted);line-height:1.55}
+  .tokenState{display:block;margin-top:10px;font-size:12.5px;font-weight:600;padding:8px 11px;border-radius:10px}
+  .tokenState.ok{background:#e9f7ee;color:#1d7a41}
+  .tokenState.warn{background:#fdf3e3;color:#8f6209}
+  .dlgFoot{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+  .dlgFoot .btn{flex:1}
+  [hidden]{display:none !important}
+  @media(prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
 </style>
 </head>
 <body>
@@ -133,93 +151,136 @@
 <div class="topbar">
   <div class="inner">
     <div class="brand"><span class="dot"></span> BILFEN · AD'S UP</div>
-    <nav>
-      <a href="#yukle">Görsel Yükle</a>
-      <a href="#viz">Videoyu İzle</a>
-      <a href="#bilgi">Nasıl Çalışır?</a>
-      <a class="cta" href="#yukle">Başla →</a>
-    </nav>
+    <div class="spacer"></div>
+    <button class="ghost" id="btnAyar">⚙ Ayarlar</button>
   </div>
 </div>
 
-<div class="hero">
-  <div class="heroCard">
-    <img src="assets/banner.jpg" alt="Bilfen AD'S UP">
-    <div class="heroBody">
-      <div>
-        <h1>Görselden <span class="grad">kısa videoya</span></h1>
-        <p>Çizimini veya fotoğrafını yükle. Görsel ücretsiz bulutta canlanır, kısa video bilgisayarına iner.</p>
-        <div class="badges">
-          <span class="badge b-blue">🖼️ Görselden video</span>
-          <span class="badge b-green">☁️ Ücretsiz bulut</span>
-          <span class="badge b-amber">⬇️ MP4 indir</span>
-          <span class="badge">🆓 Hesap yok</span>
-        </div>
+<div class="wrap">
+
+  <div class="hero">
+    <div>
+      <h1>Görselden <span class="grad">3B video</span></h1>
+      <p>Bir fotoğraf veya çizim yükle. Stable Fast 3D onu dokulu bir modele çevirir. Model bu sayfada 360° döner ve video cihazına iner.</p>
+      <div class="badges">
+        <span class="badge b-blue">🖼️ → 🧊 → 🎬</span>
+        <span class="badge b-green">🔓 Stable Fast 3D</span>
+        <span class="badge b-amber">🆓 Ücretsiz GPU (HF hesabı)</span>
       </div>
     </div>
   </div>
+
+  <div class="grid">
+
+    <!-- SOL: kontroller -->
+    <div>
+      <section class="card">
+        <h2>Görsel</h2>
+        <div class="drop" id="drop" tabindex="0" role="button" aria-label="Görsel seç">
+          <div class="em">🖼️</div>
+          <b>Görseli buraya bırak</b>
+          <span>veya tıkla · PNG / JPG / WebP</span>
+          <img id="preview" alt="Seçilen görsel">
+        </div>
+        <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp" hidden>
+
+      </section>
+
+      <section class="card">
+        <h2>Dönüş</h2>
+        <p style="margin:0 0 12px;font-size:13px;line-height:1.55">Model inince kamera sabit kalır, nesne bir tam tur döner. Bu kayıt buluta gitmez.</p>
+        <label class="field" style="margin-top:0">
+          <b>Video süresi</b>
+          <div class="sliderRow">
+            <input type="range" id="duration" min="4" max="8" step="1" value="6">
+            <output id="durOut">6 sn</output>
+          </div>
+        </label>
+
+        <label id="geminiRow" class="field" hidden style="display:flex;gap:9px;align-items:flex-start;background:#fdf3e3;border:1px solid #f3e0b8;padding:10px 12px;border-radius:12px">
+          <input type="checkbox" id="geminiOn" style="margin-top:3px;width:auto">
+          <span style="font-size:13px;line-height:1.45">Gemini ile renkleri canlandır
+            <small style="margin-top:2px">Yalnızca yerel sunucuda görünür; anahtar tarayıcıya yazılmaz.</small>
+          </span>
+        </label>
+
+        <button class="cta" id="btnOlustur" disabled>✨ 3B modele çevir ve videoyu indir</button>
+        <div class="status" id="status">Bir görsel seç, sonra modele çevir.</div>
+        <div class="bar" id="bar"><i id="barFill"></i></div>
+        <div class="log" id="log" hidden></div>
+      </section>
+    </div>
+
+    <!-- SAĞ: sahne -->
+    <div>
+      <section class="card" id="resultCard">
+        <div class="resultHead">
+          <b style="font-size:16px">Sonuç</b>
+          <span class="meta" id="resultMeta"></span>
+          <span class="right">
+            <a class="btn line" id="dlBtn" href="#" download>⬇ İndir</a>
+            <button class="btn line" id="btnDrive">☁ Drive'a kaydet</button>
+            <button class="btn solid" id="btnAgain">↻ Tekrar üret</button>
+          </span>
+        </div>
+        <div class="stage">
+          <canvas id="stageCanvas" hidden></canvas>
+          <video id="video" controls loop playsinline hidden></video>
+          <div class="empty" id="emptyStage">
+            <div class="em">🧊</div>
+            <b>3B dönüş burada oynayacak</b>
+            <span>Görseli yükle, sonra <b style="color:#dbe4ee">3B modele çevir</b>'e bas. Model inince bir tur döner.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" id="historyCard" hidden>
+        <h2>Bu oturumdaki klipler</h2>
+        <div class="history" id="history"></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="info">
+    <div class="infoItem"><div class="ic">🧊</div><div><b>Gerçek model</b><p>Stable Fast 3D fotoğrafı dokulu bir GLB modele çevirir. Yastık kabartması kullanılmaz.</p></div></div>
+    <div class="infoItem"><div class="ic">🔄</div><div><b>Dönüş bu cihazda</b><p>Model inince sayfa onu 360° döndürüp videoyu kaydeder. Bu adım ek ekran kartı harcamaz.</p></div></div>
+    <div class="infoItem"><div class="ic">🔑</div><div><b>Anahtar sende kalır</b><p>Hugging Face anahtarı yalnızca bu tarayıcıda saklanır; sunucuya, repoya veya başka birine gitmez.</p></div></div>
+  </div>
+
+  <footer>
+    <span>Bilfen AD'S UP · Görselden 3B videoya</span>
+    <span class="spacer"></span>
+    <span>Stable Fast 3D · dönüş bu tarayıcıda</span>
+  </footer>
 </div>
 
-<main>
-  <div class="steps">
-    <div class="step"><span class="n">Adım 1</span><b>Görsel yükle</b><span>Çizim, logo veya fotoğraf</span></div>
-    <div class="step"><span class="n">Adım 2</span><b>Bulutta canlanır</b><span>Açık kaynak LTX modeli görseli kısa videoya çevirir</span></div>
-    <div class="step"><span class="n">Adım 3</span><b>Klibi izle</b><span>Yaklaşık 2 saniyelik MP4 sayfada oynar</span></div>
-    <div class="step"><span class="n">Adım 4</span><b>Video iner</b><span>Dosya bilgisayarına kaydolur</span></div>
-  </div>
-
-  <section class="card" id="yukle">
-    <h2><span class="num">1</span> Görsel yükle</h2>
-    <p class="sub">Görsel, ücretsiz bir ekran kartında videoya dönüşmek için Hugging Face’e gider. Bu bir-iki dakika sürebilir. Günlük ücretsiz hak dolunca video gelmez; sahte bir video gösterilmez.</p>
-    <div class="drop" id="drop">
-      <div class="em">🖼️</div>
-      <div><b>Görseli buraya sürükle</b></div>
-      <div class="hint">👆 Dokun veya tıkla · PNG / JPG / WebP</div>
+<!-- Ayarlar -->
+<dialog id="dlgAyar">
+  <div class="dlgHead"><b>Hugging Face anahtarı</b><span class="spacer"></span><button class="ghost" id="btnAyarKapat">Kapat</button></div>
+  <div class="dlgBody">
+    <p>
+      3B modeli ücretsiz ekran kartında üretilir ve giriş ister. Ücretsiz bir Hugging Face hesabı açıp
+      <b>Settings → Access Tokens → New token</b> (Read yeterli) ile anahtar oluştur, aşağıya yapıştır.
+      Günlük hak kendi hesabına yazılır. Dönüş videosu bu tarayıcıda kaydedilir.
+    </p>
+    <input type="password" id="tokenInput" placeholder="hf_..." autocomplete="off" spellcheck="false">
+    <span class="tokenState" id="tokenState"></span>
+    <div class="dlgFoot">
+      <button class="btn solid" id="btnTokenKaydet">Kaydet</button>
+      <button class="btn line" id="btnTokenSil">Sil</button>
     </div>
-    <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp" hidden>
-    <img id="preview" class="preview" alt="Önizleme">
-    <label id="geminiRow" class="geminiRow">
-      <input type="checkbox" id="geminiOn">
-      <span>Gemini ile renkleri canlandır
-        <small>İşaretlenirse görsel önce Google Gemini’ye gider. Video için görsel her durumda ücretsiz buluta gider.</small>
-      </span>
-    </label>
-    <label class="motion">Hareket cümlesi (isteğe bağlı)
-      <input id="motion" type="text" maxlength="240" placeholder="Boş bırakırsan görsel hafifçe canlanır">
-      <small>İngilizce yazarsan hareket daha net olur. Örnek: hair moves gently in the wind</small>
-    </label>
-    <button id="btnOlustur" class="btn-primary" disabled>✨ Görseli videoya çevir ve indir</button>
-    <div class="status" id="status">Hazır — bir görsel seçin.</div>
-    <div class="bar" id="bar" style="display:none"><i id="barFill"></i></div>
-    <div class="log" id="log"></div>
-  </section>
-
-  <section class="card" id="secViz" style="display:none">
-    <h2 id="viz"><span class="num">2</span> Videon hazır</h2>
-    <p class="sub">Kısa MP4 aşağıda oynar. İndirme başlamazsa <b>⬇ İndir</b> aynı dosyayı tekrar kaydeder.</p>
-    <div id="vidList"></div>
-  </section>
-
-  <section class="card" id="bilgi">
-    <h2><span class="num">3</span> Nasıl çalışır?</h2>
-    <p class="sub">Hesap yok, ücret yok. Video, Lightricks’in açık LTX-Video modeliyle ücretsiz bir ekran kartında üretilir.</p>
-    <div class="info">
-      <div class="infoItem"><div class="ic">📤</div><div><b>Görsel buluta gider</b><p>Seçtiğin dosya bu bilgisayardan çıkar ve Hugging Face üzerindeki ücretsiz alana yüklenir.</p></div></div>
-      <div class="infoItem"><div class="ic">🎬</div><div><b>Kısa video üretilir</b><p>Model görseli yaklaşık 2 saniyelik bir klibe çevirir. Kuyruk varsa beklemek gerekir.</p></div></div>
-      <div class="infoItem"><div class="ic">⏳</div><div><b>Günlük hak sınırlı</b><p>Aynı interneti kullanan herkes bu hakkı paylaşır. Hak bitince sayfa bunu yazar, başka bir video uydurmaz.</p></div></div>
-      <div class="infoItem"><div class="ic">⬇️</div><div><b>MP4 iner</b><p>Dosya bilgisayarına kaydolur. Chrome veya Edge kullan. İndir düğmesi aynı dosyayı tekrar kaydeder.</p></div></div>
-    </div>
-  </section>
-</main>
-
-<footer>
-  <div class="footerIn">
-    <span class="dot"></span>
-    <span>Bilfen AD'S UP · Görselden Videoya Atölyesi</span>
-    <span class="right">Ücretsiz LTX-Video · MP4 bu bilgisayara iner</span>
+    <p id="tokenMsg" style="margin:10px 0 0;min-height:18px"></p>
   </div>
-</footer>
+</dialog>
 
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.169.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.169.0/examples/jsm/"
+  }
+}
+</script>
 <script src="https://accounts.google.com/gsi/client" defer></script>
 <script type="module" src="app.js"></script>
 </body>

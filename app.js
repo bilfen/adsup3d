@@ -1,38 +1,121 @@
-// AD'S UP — Görselden kısa videoya
-// Akış: görsel yükle -> ücretsiz bulutta LTX image-to-video -> MP4 indir.
-// İsteğe bağlı Gemini renk canlandırma yalnızca yerel sunucuda, anahtar tarayıcıya yazılmaz.
+// AD'S UP — görselden 3B modele, sonra 360° video.
+// Model bulutta (Stable Fast 3D). Dönüş ve kayıt bu tarayıcıda.
+// Anahtar yalnızca bu tarayıcının localStorage'ında tutulur.
 
-import { imageToVideo } from "./i2v.js";
+import { imageToModel } from "./mesh3d.js";
+import { spinToVideo } from "./spin.js";
 
 const $ = (id) => document.getElementById(id);
-const drop = $("drop"), preview = $("preview"), btnOlustur = $("btnOlustur");
-const fileInput = $("fileInput");
-const statusEl = $("status"), bar = $("bar"), barFill = $("barFill"), logEl = $("log");
-const secViz = $("secViz"), vidList = $("vidList");
+const TOKEN_KEY = "adsup.hfToken";
+const DRIVE = { clientId: "", folderId: "", scope: "https://www.googleapis.com/auth/drive.file" };
 
-const log = (m) => { logEl.style.display = "block"; logEl.textContent += m + "\n"; logEl.scrollTop = 1e9; };
-const setStatus = (t, pct) => { statusEl.textContent = t; if (pct != null) { bar.style.display = "block"; barFill.style.width = pct + "%"; } };
+const state = {
+  file: null,
+  duration: 6,
+  busy: false,
+  token: localStorage.getItem(TOKEN_KEY) || "",
+  driveToken: null,
+  ext: "mp4"
+};
 
-let file = null;
-drop.addEventListener("click", () => fileInput.click());
-fileInput.addEventListener("change", () => { if (fileInput.files[0]) setFile(fileInput.files[0]); });
-["dragover", "dragenter"].forEach((e) =>
-  drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.add("over"); }));
-drop.addEventListener("dragleave", () => drop.classList.remove("over"));
-drop.addEventListener("drop", (ev) => {
-  ev.preventDefault(); drop.classList.remove("over");
-  if (ev.dataTransfer.files[0]) setFile(ev.dataTransfer.files[0]);
-});
+const drop = $("drop"), preview = $("preview"), fileInput = $("fileInput");
+const btnOlustur = $("btnOlustur"), statusEl = $("status");
+const bar = $("bar"), barFill = $("barFill");
+const resultCard = $("resultCard"), videoEl = $("video"), dlBtn = $("dlBtn");
+const historyEl = $("history"), logEl = $("log");
+
+/* ---------------- durum / günlük ---------------- */
+
+function setStatus(text, pct) {
+  statusEl.textContent = text;
+  if (pct != null) {
+    bar.classList.add("on");
+    barFill.style.width = Math.max(3, Math.min(100, pct)) + "%";
+  }
+}
+
+function log(msg) {
+  if (!logEl) return;
+  logEl.hidden = false;
+  logEl.textContent += msg + "\n";
+  logEl.scrollTop = 1e9;
+}
+
+function clearLog() {
+  if (logEl) { logEl.textContent = ""; logEl.hidden = true; }
+}
+
+/* ---------------- anahtar (token) ---------------- */
+
+function tokenLabel() {
+  const el = $("tokenState");
+  if (!el) return;
+  if (state.token) {
+    el.textContent = "Anahtar kayıtlı (" + state.token.slice(0, 3) + "…" + state.token.slice(-4) + ") · günde 5 dk ücretsiz GPU";
+    el.className = "tokenState ok";
+  } else {
+    el.textContent = "Anahtar yok · üretim başlatılamaz";
+    el.className = "tokenState warn";
+  }
+}
+
+function openSettings() {
+  const dlg = $("dlgAyar");
+  if (typeof dlg.showModal === "function") dlg.showModal();
+  else dlg.setAttribute("open", "");
+  $("tokenInput").value = "";
+  tokenLabel();
+}
+
+function closeSettings() {
+  const dlg = $("dlgAyar");
+  if (typeof dlg.close === "function") dlg.close();
+  else dlg.removeAttribute("open");
+}
+
+/* ---------------- dosya seçimi ---------------- */
 
 function setFile(f) {
-  if (!f || !f.type.startsWith("image/")) return;
-  file = f;
+  if (!f || !f.type || !f.type.startsWith("image/")) {
+    setStatus("Yalnızca PNG, JPG veya WebP görsel seçebilirsin.");
+    return;
+  }
+  state.file = f;
   preview.src = URL.createObjectURL(f);
-  preview.style.display = "block";
-  btnOlustur.disabled = false;
-  setStatus("Görsel hazır: " + f.name);
-  log("Görsel seçildi: " + f.name + " (" + Math.round(f.size / 1024) + " KB)");
+  preview.hidden = false;
+  drop.classList.add("has-file");
+  btnOlustur.disabled = state.busy;
+  setStatus("Görsel hazır: " + f.name + " · " + Math.round(f.size / 1024) + " KB");
+  log("Görsel seçildi: " + f.name);
 }
+
+drop.addEventListener("click", () => fileInput.click());
+drop.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.click(); }
+});
+fileInput.addEventListener("change", () => { if (fileInput.files[0]) setFile(fileInput.files[0]); });
+["dragover", "dragenter"].forEach((ev) =>
+  drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "dragend"].forEach((ev) =>
+  drop.addEventListener(ev, () => drop.classList.remove("over")));
+drop.addEventListener("drop", (e) => {
+  e.preventDefault();
+  drop.classList.remove("over");
+  const f = e.dataTransfer.files && e.dataTransfer.files[0];
+  if (f) setFile(f);
+});
+
+/* ---------------- süre ---------------- */
+
+function renderDuration() {
+  const d = Number($("duration").value);
+  state.duration = d;
+  $("durOut").textContent = d + " sn";
+}
+
+$("duration").addEventListener("input", renderDuration);
+
+/* ---------------- Gemini (yalnızca yerel sunucu) ---------------- */
 
 let geminiOk = false;
 
@@ -42,8 +125,7 @@ async function shrinkForGemini(src) {
   const w = Math.max(1, Math.round(bmp.width * scale));
   const h = Math.max(1, Math.round(bmp.height * scale));
   const c = document.createElement("canvas");
-  c.width = w;
-  c.height = h;
+  c.width = w; c.height = h;
   c.getContext("2d").drawImage(bmp, 0, 0, w, h);
   bmp.close?.();
   const blob = await new Promise((res) => c.toBlob(res, "image/jpeg", 0.9));
@@ -70,38 +152,19 @@ async function enhanceWithGemini(src) {
 }
 
 async function probeGemini() {
+  // Gemini yalnızca yerel sunucuda var; GitHub Pages'te bu istek gereksiz 404 üretirdi.
+  if (!/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) return;
   try {
     const r = await fetch("/api/health");
     if (!r.ok) return;
     const j = await r.json();
     geminiOk = !!j.gemini;
     const row = $("geminiRow");
-    if (row) row.style.display = geminiOk ? "flex" : "none";
-  } catch (e) { /* statik sayfa: Gemini yok */ }
-}
-probeGemini();
-
-function addVideoCard(url, ext, blob) {
-  const kb = Math.round(blob.size / 1024);
-  const wrap = document.createElement("div");
-  wrap.className = "vidcard";
-  wrap.innerHTML = `
-    <video controls autoplay loop src="${url}"></video>
-    <div class="meta"><span>${ext.toUpperCase()} · ${kb} KB</span>
-    <span style="display:inline-flex;gap:6px;flex-wrap:wrap">
-      <a class="dl" href="${url}" download="adsup-video.${ext}">⬇ İndir</a>
-      <button class="dl" data-drive>☁ Drive'a Kaydet</button>
-    </span></div>`;
-  wrap.querySelector("[data-drive]").addEventListener("click", (e) => saveToDrive(blob, e.currentTarget));
-  vidList.prepend(wrap);
+    if (row) row.hidden = !geminiOk;
+  } catch { /* statik sayfa: Gemini yok */ }
 }
 
-const DRIVE = {
-  clientId: "",
-  folderId: "",
-  scope: "https://www.googleapis.com/auth/drive.file"
-};
-let driveToken = null;
+/* ---------------- Google Drive ---------------- */
 
 function driveClientReady() {
   return typeof google !== "undefined" && google.accounts && google.accounts.oauth2;
@@ -109,14 +172,11 @@ function driveClientReady() {
 
 function getDriveToken() {
   return new Promise((resolve, reject) => {
-    if (!driveClientReady()) return reject(new Error("Google modülü yüklenemedi — internet bağlantısını kontrol edin"));
+    if (!driveClientReady()) return reject(new Error("Google modülü yüklenemedi"));
     const client = google.accounts.oauth2.initTokenClient({
       client_id: DRIVE.clientId,
       scope: DRIVE.scope,
-      callback: (resp) => {
-        if (resp.error) reject(new Error("Google oturumu reddedildi: " + resp.error));
-        else resolve(resp.access_token);
-      },
+      callback: (resp) => resp.error ? reject(new Error("Google oturumu reddedildi: " + resp.error)) : resolve(resp.access_token),
       error_callback: (err) => reject(new Error(err.message || "Google oturumu açılamadı"))
     });
     client.requestAccessToken({ prompt: "" });
@@ -139,8 +199,8 @@ async function driveUpload(token, blob, name, mime) {
     body
   });
   const j = await r.json().catch(() => ({}));
-  if (r.status === 401) { driveToken = null; throw new Error("Oturum yenilenmeli (401)"); }
-  if (!r.ok) throw new Error("Drive hatası: " + (j.error && j.error.message || r.status));
+  if (r.status === 401) { state.driveToken = null; throw new Error("Oturum yenilenmeli (401)"); }
+  if (!r.ok) throw new Error("Drive hatası: " + ((j.error && j.error.message) || r.status));
   return j;
 }
 
@@ -148,100 +208,167 @@ async function saveToDrive(blob, btn) {
   const original = btn.innerHTML;
   try {
     if (!DRIVE.clientId) {
-      btn.textContent = "☁ Önce ayar gerek";
-      setStatus("Drive'a kaydet için öğretmenin Google Client ID ayarı gerekli (adsup3d/app.js içindeki DRIVE bölümü). Kurulum talimatı proje README'sinde.");
-      await new Promise((r) => setTimeout(r, 4000));
-      btn.innerHTML = original;
+      btn.textContent = "☁ Ayarlar";
+      setStatus("Drive'a kaydetmek için öğretmenin Google Client ID ayarı gerekli (README).");
       return;
     }
     btn.disabled = true;
     btn.textContent = "☁ Yükleniyor…";
-    setStatus("Google Drive'a yükleniyor…");
-    let token = driveToken || await getDriveToken();
+    let token = state.driveToken || await getDriveToken();
     let res;
     try { res = await driveUpload(token, blob, "adsup-video.mp4", blob.type || "video/mp4"); }
     catch (e) {
-      if (!/401|Oturum yenilenmeli/.test(e.message)) throw e;
+      if (!/401|yenilenmeli/.test(e.message)) throw e;
       token = await getDriveToken();
       res = await driveUpload(token, blob, "adsup-video.mp4", blob.type || "video/mp4");
     }
-    driveToken = token;
-    btn.textContent = "✔ Drive'a kaydedildi";
-    setStatus("✔ Google Drive'a kaydedildi: " + res.name + " — " + (res.webViewLink || "https://drive.google.com/drive/my-drive"));
-    log("Drive'a yüklendi: id=" + res.id);
+    state.driveToken = token;
+    btn.textContent = "✔ Drive'da";
+    setStatus("✔ Google Drive'a kaydedildi: " + res.name);
+    log("Drive'a yüklendi: " + res.id);
   } catch (err) {
-    console.error(err);
     btn.textContent = "⚠ Drive hatası";
-    setStatus("Drive'a kaydetmede hata: " + err.message);
-    log("Drive hatası: " + err.message);
+    setStatus("Drive'a kaydetme hatası: " + err.message);
   } finally {
     btn.disabled = false;
-    if (!btn.textContent.includes("✔"))
-      setTimeout(() => { btn.innerHTML = original; btn.disabled = false; }, 3500);
-    else setTimeout(() => { btn.innerHTML = original; }, 3500);
+    setTimeout(() => { btn.innerHTML = original; }, 3500);
   }
 }
 
-function saveLocal(blob) {
+/* ---------------- üretim ---------------- */
+
+function addHistory(url, meta) {
+  const item = document.createElement("figure");
+  item.className = "hItem";
+  item.innerHTML =
+    `<video src="${url}" muted loop playsinline preload="metadata"></video>
+     <figcaption>3B dönüş · ${meta.duration} sn</figcaption>`;
+  item.querySelector("video").addEventListener("mouseenter", (e) => e.target.play().catch(() => {}));
+  item.querySelector("video").addEventListener("mouseleave", (e) => { e.target.pause(); });
+  item.addEventListener("click", () => showResult(url, meta));
+  historyEl.prepend(item);
+  $("historyCard").hidden = false;
+  while (historyEl.children.length > 6) historyEl.lastChild.remove();
+}
+
+function showResult(url, meta) {
+  const empty = $("emptyStage");
+  const canvas = $("stageCanvas");
+  if (empty) empty.hidden = true;
+  if (canvas) canvas.hidden = true;
+  videoEl.hidden = false;
+  videoEl.src = url;
+  videoEl.play().catch(() => {});
+  dlBtn.href = url;
+  dlBtn.download = "adsup-video-" + Date.now() + "." + (meta.ext || "mp4");
+  resultCard.hidden = false;
+  $("resultMeta").textContent =
+    "3B dönüş · " + meta.duration + " sn · " + Math.round(meta.kb) + " KB";
+  resultCard.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function run() {
+  if (state.busy) return;
+  if (!state.file) { setStatus("Önce bir görsel seç."); return; }
+  if (!state.token) {
+    setStatus("Üretim için Hugging Face anahtarı gerekiyor.");
+    openSettings();
+    return;
+  }
+  state.busy = true;
+  btnOlustur.disabled = true;
+  btnOlustur.classList.add("busy");
+  clearLog();
+  const t0 = Date.now();
+  try {
+    let work = state.file;
+    if (geminiOk && $("geminiOn") && $("geminiOn").checked) {
+      setStatus("Gemini renkleri canlandırıyor…", 4);
+      try { work = await enhanceWithGemini(state.file); log("Gemini renkli görsel hazır"); }
+      catch (e) { log("Gemini atlandı: " + e.message); }
+    }
+    const model = await imageToModel({ file: work, token: state.token, onStatus: setStatus });
+    log("3B model indi: " + Math.round(model.blob.size / 1024) + " KB");
+    const canvas = $("stageCanvas");
+    const empty = $("emptyStage");
+    if (empty) empty.hidden = true;
+    videoEl.hidden = true;
+    canvas.hidden = false;
+    const clip = await spinToVideo(model.blob, canvas, Number($("duration").value), setStatus);
+    state.ext = clip.ext;
+    setStatus("✔ Video hazır", 100);
+    const url = URL.createObjectURL(clip.blob);
+    const meta = { duration: clip.ms, kb: clip.blob.size / 1024, ext: clip.ext };
+    showResult(url, meta);
+    addHistory(url, meta);
+    log("Video hazır: " + Math.round(meta.kb) + " KB, " + clip.ext);
+    saveLocal(clip.blob, clip.ext);
+  } catch (err) {
+    setStatus("Hata: " + (err && err.message ? err.message : err));
+    log("Hata: " + (err && err.message ? err.message : err));
+    bar.classList.remove("on");
+  } finally {
+    state.busy = false;
+    btnOlustur.disabled = false;
+    btnOlustur.classList.remove("busy");
+    void t0;
+  }
+}
+
+function saveLocal(blob, ext) {
   const url = URL.createObjectURL(blob);
-  const name = "adsup-video-" + Date.now() + ".mp4";
   const a = document.createElement("a");
   a.href = url;
-  a.download = name;
+  a.download = "adsup-video-" + Date.now() + "." + (ext || state.ext || "mp4");
   document.body.appendChild(a);
   a.click();
   a.remove();
-  return { url, name };
 }
 
-async function generateVideo(srcFile) {
-  setStatus("Görsel hazırlanıyor…", 8);
-  log("Yükleniyor: " + srcFile.name);
-  let work = srcFile;
-  const wantGemini = geminiOk && $("geminiOn") && $("geminiOn").checked;
-  if (wantGemini) {
-    try {
-      setStatus("Gemini renkleri canlandırıyor…", 16);
-      log("Gemini: görsel Google'a gider, renk canlanır. Video sonra bulutta üretilir.");
-      const enhanced = await enhanceWithGemini(srcFile);
-      work = enhanced;
-      preview.src = URL.createObjectURL(enhanced);
-      preview.style.display = "block";
-      log("Gemini renkli görsel hazır");
-    } catch (e) {
-      log("Gemini atlandı: " + e.message + " — orijinal görselle devam");
-    }
-  }
-  const prompt = ($("motion") && $("motion").value || "").trim();
-  log("Görsel, ücretsiz video bulutuna gidiyor (Lightricks LTX-Video).");
-  let lastLog = "";
-  const blob = await imageToVideo(work, (msg, pct) => {
-    setStatus(msg, pct);
-    if (msg !== lastLog) { lastLog = msg; log(msg); }
-  }, prompt);
-  return blob;
-}
+/* ---------------- olaylar ---------------- */
 
-window.__adsup = { setFile, generateVideo };
-
-btnOlustur.addEventListener("click", async () => {
-  if (!file) return;
-  btnOlustur.disabled = true;
-  logEl.textContent = "";
-  try {
-    const blob = await generateVideo(file);
-    const saved = saveLocal(blob);
-    secViz.style.display = "block";
-    addVideoCard(saved.url, "mp4", blob);
-    secViz.scrollIntoView({ behavior: "smooth", block: "start" });
-    setStatus("✔ Video hazır (" + Math.round(blob.size / 1024) + " KB). İnmezse alttaki İndir düğmesine bas.", 100);
-    log("Video hazır: " + saved.name);
-  } catch (err) {
-    console.error(err);
-    setStatus("Hata: " + (err && err.message ? err.message : err));
-    log("Hata: " + (err && err.message ? err.message : err));
-    bar.style.display = "none";
-  } finally {
-    btnOlustur.disabled = !file;
+btnOlustur.addEventListener("click", run);
+$("btnAyar").addEventListener("click", openSettings);
+$("btnAyarKapat").addEventListener("click", closeSettings);
+$("dlgAyar").addEventListener("click", (e) => { if (e.target.id === "dlgAyar") closeSettings(); });
+$("btnTokenKaydet").addEventListener("click", () => {
+  const v = ($("tokenInput").value || "").trim();
+  if (!/^hf_[A-Za-z0-9]{20,}$/.test(v)) {
+    $("tokenMsg").textContent = "Anahtar hf_ ile başlamalı. Hugging Face → Settings → Access Tokens.";
+    return;
   }
+  state.token = v;
+  localStorage.setItem(TOKEN_KEY, v);
+  $("tokenMsg").textContent = "Anahtar kaydedildi. Bu tarayıcıda kalır, başka yere gitmez.";
+  $("tokenInput").value = "";
+  tokenLabel();
 });
+$("btnTokenSil").addEventListener("click", () => {
+  state.token = "";
+  localStorage.removeItem(TOKEN_KEY);
+  $("tokenMsg").textContent = "Anahtar silindi.";
+  tokenLabel();
+});
+$("btnAgain").addEventListener("click", run);
+$("dlBtn").addEventListener("click", () => {
+  const url = videoEl.src;
+  if (!url) return;
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "adsup-video-" + Date.now() + "." + (state.ext || "mp4");
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+});
+$("btnDrive").addEventListener("click", (e) => {
+  fetch(videoEl.src).then((r) => r.blob()).then((b) => saveToDrive(b, e.currentTarget)).catch(() => {});
+});
+
+/* ---------------- başlangıç ---------------- */
+
+renderDuration();
+tokenLabel();
+probeGemini();
+if (!state.token) setTimeout(() => { setStatus("Başlamak için Ayarlar'dan ücretsiz Hugging Face anahtarını ekle."); }, 600);
+
+window.__adsup = { state, setFile, run, openSettings };
